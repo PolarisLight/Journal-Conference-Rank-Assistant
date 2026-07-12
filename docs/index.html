@@ -1,167 +1,90 @@
 <!doctype html>
 <html lang="zh-CN" data-lang="zh" translate="no" class="notranslate">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="google" content="notranslate">
-    <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#f4f7fb" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#11161d" media="(prefers-color-scheme: dark)">
-    <meta
-      name="description"
-      content="在 Google Scholar 和 DBLP 检索结果旁显示 CCF、中科院、JCR、SCI/WoS、影响因子与期刊会议信息。"
-    >
-    <link rel="canonical" href="https://polarislight.github.io/Journal-Conference-Rank-Assistant/">
-    <link rel="icon" type="image/png" href="assets/icon128.png">
-    <link rel="stylesheet" href="styles.css">
-    <title>期刊会议等级与分区助手</title>
-  </head>
-  <body>
-    <a class="skip-link" href="#main" data-zh="跳到正文" data-en="Skip to content">跳到正文</a>
-
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href="#top" aria-label="期刊会议等级与分区助手主页" data-aria-zh="期刊会议等级与分区助手主页" data-aria-en="Journal and Conference Rank Assistant home">
-          <img src="assets/icon128.png" width="36" height="36" alt="">
-          <span data-zh="期刊会议等级与分区助手" data-en="Journ. & Conf. Rank Assistant">期刊会议等级与分区助手</span>
-        </a>
-
-        <nav class="site-nav" aria-label="主要导航" data-aria-zh="主要导航" data-aria-en="Primary navigation">
-          <a href="#features" data-zh="功能" data-en="Features">功能</a>
-          <a href="#data" data-zh="数据安全" data-en="Data safety">数据安全</a>
-          <a href="#identity" data-zh="技术信息" data-en="Technical info">技术信息</a>
-        </nav>
-
-        <div class="language-switch" aria-label="Language">
-          <button type="button" data-language="zh" aria-pressed="true">中文</button>
-          <button type="button" data-language="en" aria-pressed="false">EN</button>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google" content="notranslate">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="在 Google Scholar 和 DBLP 的论文标题旁显示 CCF、中科院、JCR、SCI/SCIE 与期刊会议信息。">
+  <link rel="canonical" href="https://polarislight.github.io/Journal-Conference-Rank-Assistant/">
+  <link rel="icon" type="image/png" href="assets/icon128.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>期刊会议等级与分区助手</title>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-zh="跳到正文" data-en="Skip to content">跳到正文</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top" aria-label="期刊会议等级与分区助手主页" data-aria-zh="期刊会议等级与分区助手主页" data-aria-en="Journal and Conference Rank Assistant home">
+        <img src="assets/icon128.png" width="34" height="34" alt="">
+        <span data-zh="期刊会议等级与分区助手" data-en="Journ. & Conf. Rank Assistant">期刊会议等级与分区助手</span>
+      </a>
+      <nav class="site-nav" aria-label="主要导航" data-aria-zh="主要导航" data-aria-en="Primary navigation">
+        <a href="#preview" data-zh="效果" data-en="Preview">效果</a>
+        <a href="#coverage" data-zh="支持内容" data-en="Coverage">支持内容</a>
+        <a href="#privacy" data-zh="隐私" data-en="Privacy">隐私</a>
+      </nav>
+      <div class="language-switch" aria-label="Language">
+        <button type="button" data-language="zh" aria-pressed="true">中文</button>
+        <button type="button" data-language="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </header>
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <h1 data-zh="查论文时，顺手把等级看了" data-en="Rankings beside the title">查论文时，顺手把等级看了</h1>
+        <p class="hero-summary" data-zh="插件把 CCF、中科院、JCR 和 SCI 收录信息放在论文标题旁。支持 Google Scholar 与 DBLP，无需登录。" data-en="The extension adds CCF, CAS, JCR, and SCI indexing beside paper titles on Google Scholar and DBLP. No sign-in.">插件把 CCF、中科院、JCR 和 SCI 收录信息放在论文标题旁。支持 Google Scholar 与 DBLP，无需登录。</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant" data-zh="打开 GitHub 仓库" data-en="Open GitHub repository">打开 GitHub 仓库</a>
+          <a class="text-link" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues" data-zh="反馈问题" data-en="Report an issue">反馈问题</a>
         </div>
       </div>
-    </header>
-
-    <main id="main">
-      <section class="hero" id="top">
-        <div class="hero-copy">
-          <p class="eyebrow" data-zh="论文检索增强" data-en="Academic search enhancement">论文检索增强</p>
-          <h1 data-zh="等级与分区，就在标题旁" data-en="Rankings at a glance">等级与分区，就在标题旁</h1>
-          <p
-            class="hero-summary"
-            data-zh="无需登录，在 Google Scholar 与 DBLP 直接查看 CCF、中科院、JCR、SCI/WoS 和影响因子。"
-            data-en="Read CCF, CAS, JCR, Web of Science, and impact-factor context without leaving your search results."
-          >无需登录，在 Google Scholar 与 DBLP 直接查看 CCF、中科院、JCR、SCI/WoS 和影响因子。</p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant" data-zh="查看 GitHub" data-en="View on GitHub">查看 GitHub</a>
-            <a class="button button-secondary" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/blob/main/PRIVACY.md" data-zh="隐私政策" data-en="Privacy policy">隐私政策</a>
-          </div>
-        </div>
-
-        <div class="hero-visual">
-          <img
-            src="assets/screenshot-1280x800.png"
-            width="1280"
-            height="800"
-            loading="eager"
-            fetchpriority="high"
-            alt="Google Scholar 论文检索结果中的期刊与会议等级标签"
-            data-alt-zh="Google Scholar 论文检索结果中的期刊与会议等级标签"
-            data-alt-en="Journal and conference ranking badges in Google Scholar results"
-          >
-        </div>
-      </section>
-
-      <section class="fact-strip" aria-label="产品状态" data-aria-zh="产品状态" data-aria-en="Product status">
-        <div><strong data-zh="无需登录" data-en="No sign-in">无需登录</strong><span data-zh="打开检索页即可使用" data-en="Works on supported search pages">打开检索页即可使用</span></div>
-        <div><strong data-zh="本地匹配" data-en="Local matching">本地匹配</strong><span data-zh="不上传浏览记录" data-en="Browsing history is not uploaded">不上传浏览记录</span></div>
-        <div><strong data-zh="签名更新" data-en="Signed updates">签名更新</strong><span data-zh="数据包经过完整性验证" data-en="Data bundles are integrity-checked">数据包经过完整性验证</span></div>
-      </section>
-
-      <section class="section features" id="features">
-        <div class="section-copy">
-          <h2 data-zh="少切换页面，多看论文" data-en="Fewer lookups, more reading">少切换页面，多看论文</h2>
-          <p
-            data-zh="标签紧贴论文标题。悬停即可查看指标含义、数据年份、发行商与主要研究方向。"
-            data-en="Badges stay next to publication titles. Hover to inspect definitions, data years, publishers, and research topics."
-          >标签紧贴论文标题。悬停即可查看指标含义、数据年份、发行商与主要研究方向。</p>
-        </div>
-
-        <div class="badge-stage" aria-label="示例标签" data-aria-zh="示例标签" data-aria-en="Example ranking badges">
-          <span class="rank-badge badge-ccf">CCF A</span>
-          <span class="rank-badge badge-cas" data-zh="中科院 1区 Top" data-en="CAS Q1 Top">中科院 1区 Top</span>
-          <span class="rank-badge badge-jcr">JCR Q1</span>
-          <span class="rank-badge badge-wos">SCIE</span>
-          <p data-zh="SCI/SCIE 是收录类型，分区由 JCR 或中科院体系单独呈现。" data-en="SCI and SCIE are indexing types. JCR and CAS rankings are shown separately.">SCI/SCIE 是收录类型，分区由 JCR 或中科院体系单独呈现。</p>
-        </div>
-
-        <div class="feature-list">
-          <article>
-            <h3 data-zh="结果页原位显示" data-en="Inline on result pages">结果页原位显示</h3>
-            <p data-zh="支持 Google Scholar、DBLP 及常用官方镜像域名。" data-en="Supports Google Scholar, DBLP, and commonly used official mirror domains.">支持 Google Scholar、DBLP 及常用官方镜像域名。</p>
-          </article>
-          <article>
-            <h3 data-zh="清晰的指标边界" data-en="Clear metric boundaries">清晰的指标边界</h3>
-            <p data-zh="CCF、JCR、中科院分区与 Web of Science 收录类型分别展示。" data-en="CCF, JCR, CAS, and Web of Science indexing are presented as distinct systems.">CCF、JCR、中科院分区与 Web of Science 收录类型分别展示。</p>
-          </article>
-          <article>
-            <h3 data-zh="浅色与深色模式" data-en="Light and dark modes">浅色与深色模式</h3>
-            <p data-zh="扩展支持浅色、深色以及跟随系统三种主题。" data-en="The extension offers light, dark, and system-following themes.">扩展支持浅色、深色以及跟随系统三种主题。</p>
-          </article>
-          <article>
-            <h3 data-zh="动态页面性能优化" data-en="Built for dynamic pages">动态页面性能优化</h3>
-            <p data-zh="按批次处理新增结果，避免阻塞 DBLP 与 Scholar 页面。" data-en="New results are processed in batches to keep DBLP and Scholar responsive.">按批次处理新增结果，避免阻塞 DBLP 与 Scholar 页面。</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section data-section" id="data">
-        <div class="data-visual">
-          <img
-            src="assets/promo-440x280.png"
-            width="440"
-            height="280"
-            loading="lazy"
-            alt="期刊会议等级与分区助手功能概览"
-            data-alt-zh="期刊会议等级与分区助手功能概览"
-            data-alt-en="Journal and Conference Rank Assistant feature overview"
-          >
-        </div>
-        <div class="data-copy">
-          <h2 data-zh="数据留在浏览器里" data-en="Ranking data stays local">数据留在浏览器里</h2>
-          <p data-zh="等级匹配默认在本地完成。插件没有广告、统计分析、跟踪器或开发者账户系统。" data-en="Ranking matches run locally by default. The extension has no ads, analytics, trackers, or developer account system.">等级匹配默认在本地完成。插件没有广告、统计分析、跟踪器或开发者账户系统。</p>
-          <div class="process-list">
-            <div><strong data-zh="下载" data-en="Download">下载</strong><span data-zh="仅从项目 GitHub 仓库获取结构化数据包" data-en="Structured data bundles come only from the project repository">仅从项目 GitHub 仓库获取结构化数据包</span></div>
-            <div><strong data-zh="校验" data-en="Verify">校验</strong><span data-zh="检查 SHA-256 与 ECDSA P-256 签名" data-en="Checks SHA-256 integrity and the ECDSA P-256 signature">检查 SHA-256 与 ECDSA P-256 签名</span></div>
-            <div><strong data-zh="存储" data-en="Store">存储</strong><span data-zh="通过验证后以 AES-GCM 保存在本地" data-en="Verified data is stored locally with AES-GCM">通过验证后以 AES-GCM 保存在本地</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section identity-section" id="identity">
-        <div>
-          <h2 data-zh="固定的 Firefox 扩展 ID" data-en="A fixed Firefox extension ID">固定的 Firefox 扩展 ID</h2>
-          <p data-zh="它用于识别扩展、权限与更新，不是邮箱，也不需要对应的收件箱。" data-en="It identifies the extension, permissions, and updates. It is not an email address and needs no inbox.">它用于识别扩展、权限与更新，不是邮箱，也不需要对应的收件箱。</p>
-        </div>
-        <div class="identity-box">
-          <code>journal-conference-rank-assistant@polarislight.github.io</code>
-          <button class="copy-button" type="button" data-copy-id data-zh="复制" data-en="Copy">复制</button>
-          <p class="copy-status" role="status" aria-live="polite"></p>
-        </div>
-      </section>
-
-      <section class="final-cta">
-        <img src="assets/icon128.png" width="88" height="88" alt="" loading="lazy">
-        <div>
-          <h2 data-zh="开源、透明、面向科研检索" data-en="Open, transparent, built for research search">开源、透明、面向科研检索</h2>
-          <p data-zh="查看源码、隐私政策或提交问题。" data-en="Review the source, read the privacy policy, or report an issue.">查看源码、隐私政策或提交问题。</p>
-        </div>
-        <a class="button button-primary" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues" data-zh="报告问题" data-en="Report an issue">报告问题</a>
-      </section>
-    </main>
-
-    <footer>
-      <p data-zh="本项目与相关评级机构、数据库及出版商不存在隶属或官方合作关系。" data-en="This project is not affiliated with ranking organizations, databases, or publishers.">本项目与相关评级机构、数据库及出版商不存在隶属或官方合作关系。</p>
-      <a href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant" data-zh="GitHub 仓库" data-en="GitHub repository">GitHub 仓库</a>
-    </footer>
-
-    <script src="script.js"></script>
-  </body>
+      <div class="paper-preview" id="preview" aria-label="经典论文中的插件显示效果" data-aria-zh="经典论文中的插件显示效果" data-aria-en="Extension preview on well-known papers">
+        <div class="preview-toolbar"><span data-zh="论文检索结果" data-en="Publication results">论文检索结果</span><span class="preview-count">4</span></div>
+        <article class="paper-row">
+          <h2>Attention Is All You Need</h2><p>Ashish Vaswani et al. · NeurIPS 2017</p>
+          <div class="badge-row"><span class="rank-badge badge-ccf" title="CCF A">CCF A</span><span class="venue-chip" data-zh="会议详情" data-en="Venue info">会议详情</span></div>
+        </article>
+        <article class="paper-row">
+          <h2>Deep Residual Learning for Image Recognition</h2><p>Kaiming He et al. · CVPR 2016</p>
+          <div class="badge-row"><span class="rank-badge badge-ccf" title="CCF A">CCF A</span><span class="venue-chip" data-zh="会议详情" data-en="Venue info">会议详情</span></div>
+        </article>
+        <article class="paper-row">
+          <h2>BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</h2><p>Jacob Devlin et al. · NAACL 2019</p>
+          <div class="badge-row"><span class="rank-badge badge-ccf-b" title="CCF B">CCF B</span><span class="venue-chip" data-zh="会议详情" data-en="Venue info">会议详情</span></div>
+        </article>
+        <article class="paper-row paper-row-journal">
+          <h2>Mastering the game of Go with deep neural networks and tree search</h2><p>David Silver et al. · Nature 2016</p>
+          <div class="badge-row"><span class="rank-badge badge-cas" data-zh="中科院 1区 Top" data-en="CAS Q1 Top">中科院 1区 Top</span><span class="rank-badge badge-jcr">JCR Q1</span><span class="rank-badge badge-wos">SCIE</span></div>
+        </article>
+      </div>
+    </section>
+    <section class="support-strip" aria-label="支持的平台" data-aria-zh="支持的平台" data-aria-en="Supported platforms"><span>Google Scholar</span><span>DBLP</span><span>Firefox</span><span>Chrome</span></section>
+    <section class="section coverage" id="coverage">
+      <div class="section-heading"><h2 data-zh="标题旁边，刚好够用" data-en="The useful bits, beside the title">标题旁边，刚好够用</h2><p data-zh="平时要另外打开几个网站查的信息，现在可以直接扫一眼。" data-en="Information that usually takes several lookups is visible at a glance.">平时要另外打开几个网站查的信息，现在可以直接扫一眼。</p></div>
+      <div class="coverage-list">
+        <article>
+          <div><h3 data-zh="会议看 CCF" data-en="CCF for conferences">会议看 CCF</h3><p data-zh="显示 A、B、C 类。未收录的会议会明确标成 CCF None。" data-en="Shows A, B, and C tiers. Unlisted venues are marked CCF None.">显示 A、B、C 类。未收录的会议会明确标成 CCF None。</p></div>
+          <div class="row-example"><span class="rank-badge badge-ccf">CCF A</span><span class="rank-badge badge-none">CCF None</span></div>
+        </article>
+        <article>
+          <div><h3 data-zh="期刊看分区与收录" data-en="Rankings and indexing for journals">期刊看分区与收录</h3><p data-zh="中科院分区、Top、JCR 分区和 SCI/SCIE 收录分开显示，不把不同体系混在一起。" data-en="CAS tiers, Top status, JCR quartiles, and SCI/SCIE indexing remain separate.">中科院分区、Top、JCR 分区和 SCI/SCIE 收录分开显示，不把不同体系混在一起。</p></div>
+          <div class="row-example"><span class="rank-badge badge-cas" data-zh="中科院 1区 Top" data-en="CAS Q1 Top">中科院 1区 Top</span><span class="rank-badge badge-jcr">JCR Q1</span><span class="rank-badge badge-wos">SCIE</span></div>
+        </article>
+        <article>
+          <div><h3 data-zh="悬停再看细节" data-en="Hover for the details">悬停再看细节</h3><p data-zh="想细看时，把鼠标放到标签或期刊会议名称上。年份、指标说明、出版社和研究方向会出现在浮层里。" data-en="Hover over a badge or venue to see years, metric notes, publishers, and research areas.">想细看时，把鼠标放到标签或期刊会议名称上。年份、指标说明、出版社和研究方向会出现在浮层里。</p></div>
+          <div class="hover-sample" tabindex="0"><span data-zh="把鼠标放这里" data-en="Hover here">把鼠标放这里</span><div class="sample-tooltip" role="tooltip"><strong>Nature</strong><span data-zh="出版商：Springer Nature" data-en="Publisher: Springer Nature">出版商：Springer Nature</span><span data-zh="方向：综合科学" data-en="Area: Multidisciplinary science">方向：综合科学</span></div></div>
+        </article>
+      </div>
+    </section>
+    <section class="section privacy-section" id="privacy">
+      <div class="privacy-mark" aria-hidden="true">✓</div>
+      <div class="privacy-copy"><h2 data-zh="检索记录不离开浏览器" data-en="Your searches stay in the browser">检索记录不离开浏览器</h2><p data-zh="匹配在本地完成。插件不上传检索词和浏览记录，也没有广告或统计跟踪。分区数据更新从项目仓库下载，并在替换前校验签名。" data-en="Matching runs locally. The extension does not upload queries or browsing history, and it has no ads or analytics. Ranking updates are verified before installation.">匹配在本地完成。插件不上传检索词和浏览记录，也没有广告或统计跟踪。分区数据更新从项目仓库下载，并在替换前校验签名。</p><a class="text-link" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/blob/main/PRIVACY.md" data-zh="阅读隐私政策" data-en="Read the privacy policy">阅读隐私政策</a></div>
+    </section>
+    <section class="final-cta"><div><h2 data-zh="源码在 GitHub" data-en="The code is on GitHub">源码在 GitHub</h2><p data-zh="可以查看实现、下载测试包，或者提交问题。" data-en="Inspect the code, download a test build, or open an issue.">可以查看实现、下载测试包，或者提交问题。</p></div><a class="button button-primary" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant" data-zh="打开 GitHub 仓库" data-en="Open GitHub repository">打开 GitHub 仓库</a></section>
+  </main>
+  <footer><p data-zh="非 CCF、中科院、Clarivate 或出版商官方产品。" data-en="Not an official product of CCF, CAS, Clarivate, or any publisher.">非 CCF、中科院、Clarivate 或出版商官方产品。</p><a href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant" data-zh="GitHub 仓库" data-en="GitHub repository">GitHub 仓库</a></footer>
+  <script src="script.js"></script>
+</body>
 </html>
