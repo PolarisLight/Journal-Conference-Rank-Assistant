@@ -1,5 +1,7 @@
 # 期刊会议等级与分区助手
 
+[简体中文](README.md) | [English](README_EN.md)
+
 在学术搜索结果旁直接显示期刊与会议等级，无需登录。支持 Google Scholar、DBLP 及其常用镜像域名。
 
 > English name: Journal & Conference Rank Assistant
@@ -16,12 +18,14 @@ SCI / SCIE 等是 Web of Science 的收录类型，本身没有独立的 Q1–Q4
 
 ## 安装
 
-当前自用版下载：
+当前可测试版本：
 
 - [Chrome / Chromium CRX v0.10.0](releases/v0.10.0/Journal-Conference-Rank-Assistant-Chrome-v0.10.0.crx)
 - [Firefox XPI v0.10.0](releases/v0.10.0/Journal-Conference-Rank-Assistant-Firefox-v0.10.0.xpi)
 
 Firefox 自用未签名 XPI 可在 `about:debugging#/runtime/this-firefox` 中选择“临时载入附加组件”。要永久安装到正式版 Firefox，需要经过 Mozilla Add-ons 签名。
+
+Firefox v0.10.1 已提交 Mozilla Add-ons 公开上架审核。审核通过后，本页将替换为 AMO 正式安装链接。
 
 ## 数据更新
 
@@ -68,3 +72,5 @@ node scripts/build_signed_update.mjs 2026.07.12.1
 - 隐私政策及权限用途说明
 
 Firefox 包已通过 Mozilla `web-ext lint`：0 errors、0 warnings。Chrome 包已由本机 Chrome 成功打包验证。最终永久安装包仍须分别由 Mozilla AMO 和 Chrome Web Store 账号签发；本地私钥签名的 CRX 不能替代 Windows 上的 Chrome Web Store 认证。
+
+Firefox 扩展 ID 为 `journal-conference-rank-assistant@polarislight.github.io`。这是 Mozilla 用于识别扩展及更新的固定标识符，不是电子邮箱地址，也不要求该地址能够收发邮件。
