@@ -6,6 +6,8 @@ See journal and conference rankings directly beside academic search results, wit
 
 > Firefox listing name: **Journ. & Conf. Rank Assistant**
 
+Project website: https://polarislight.github.io/Journal-Conference-Rank-Assistant/
+
 ## Information shown
 
 - CCF A, B, and C recommendations, with a gray `CCF None` badge for unlisted venues

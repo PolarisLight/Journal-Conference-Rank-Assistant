@@ -6,6 +6,8 @@
 
 > English name: Journal & Conference Rank Assistant
 
+项目主页：https://polarislight.github.io/Journal-Conference-Rank-Assistant/
+
 ## 显示内容
 
 - CCF A / B / C；未收录时显示灰色 `CCF None`
