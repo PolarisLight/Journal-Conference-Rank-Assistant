@@ -58,3 +58,13 @@ node scripts/build_signed_update.mjs 2026.07.12.1
 ## 名称与数据说明
 
 本项目与中国计算机学会、中国科学院文献情报中心、Clarivate、Google、DBLP、Crossref 及各出版商均无隶属或官方合作关系。等级、分区和影响因子仅供检索辅助，正式评价或投稿前请以对应机构当年发布的信息为准。
+## 浏览器商店认证
+
+`submission/v0.10.1/` 包含商店上传候选：
+
+- `chrome-web-store-upload-v0.10.1.zip`
+- `firefox-amo-upload-v0.10.1.zip`
+- Chrome Web Store 图标、宣传图、截图与提交文案
+- 隐私政策及权限用途说明
+
+Firefox 包已通过 Mozilla `web-ext lint`：0 errors、0 warnings。Chrome 包已由本机 Chrome 成功打包验证。最终永久安装包仍须分别由 Mozilla AMO 和 Chrome Web Store 账号签发；本地私钥签名的 CRX 不能替代 Windows 上的 Chrome Web Store 认证。

@@ -1,0 +1,81 @@
+{
+  "manifest_version": 3,
+  "name": "期刊会议等级与分区助手",
+  "version": "0.10.1",
+  "description": "在 Google Scholar、DBLP 等页面显示 CCF、中科院、JCR、SCI、IF 与期刊会议信息。",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "journal-conference-rank-assistant@polarislight.github.io",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "searchTerms",
+          "websiteContent"
+        ]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "https://scholar.google.com/*",
+    "https://scholar.googleusercontent.com/*",
+    "https://dblp.org/*",
+    "https://*.dblp.org/*",
+    "https://dblp.uni-trier.de/*",
+    "https://*.dblp.uni-trier.de/*",
+    "https://dblp.dagstuhl.de/*",
+    "https://*.dblp.dagstuhl.de/*",
+    "https://api.crossref.org/*",
+    "https://raw.githubusercontent.com/*"
+  ],
+  "action": {
+    "default_title": "期刊会议等级与分区助手",
+    "default_popup": "extension/popup/popup.html",
+    "default_icon": {
+      "16": "extension/icons/icon16.png",
+      "32": "extension/icons/icon32.png",
+      "48": "extension/icons/icon48.png"
+    }
+  },
+  "options_page": "extension/popup/popup.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://scholar.google.com/*",
+        "https://scholar.googleusercontent.com/*",
+        "https://dblp.org/*",
+        "https://*.dblp.org/*",
+        "https://dblp.uni-trier.de/*",
+        "https://*.dblp.uni-trier.de/*",
+        "https://dblp.dagstuhl.de/*",
+        "https://*.dblp.dagstuhl.de/*"
+      ],
+      "js": [
+        "extension/lib/normalizer.js",
+        "extension/content/content-v7.js"
+      ],
+      "css": [
+        "extension/content/badges.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "scripts": [
+      "extension/background/background.js"
+    ]
+  },
+  "icons": {
+    "16": "extension/icons/icon16.png",
+    "32": "extension/icons/icon32.png",
+    "48": "extension/icons/icon48.png",
+    "128": "extension/icons/icon128.png"
+  }
+}

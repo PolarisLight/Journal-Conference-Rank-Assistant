@@ -1,0 +1,2 @@
+d46a19a3845810cdc8fa922d0996ece95bc3319ef89cbbe85e6e5a18096d95f9  chrome-web-store-upload-v0.10.1.zip
+7398ec410ab3d3bfa762543a8f5641d20251a27f4fd9c155440799153f8c409c  firefox-amo-upload-v0.10.1.zip
