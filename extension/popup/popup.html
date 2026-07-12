@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>期刊会议等级与分区助手</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>期刊会议等级与分区助手</h1><p>CCF · 中科院 · JCR · SCI · IF</p></div>
+    <label class="switch" title="启用扩展"><input id="enabled" type="checkbox"><span></span></label>
+  </header>
+
+  <section id="updateBanner" class="status" data-state="idle">
+    <span class="status-dot"></span>
+    <div><strong id="statusTitle">本地数据已就绪</strong><p id="statusDetail">尚未检查官方更新</p></div>
+  </section>
+
+  <section class="card">
+    <h2>显示标签</h2>
+    <div class="grid">
+      <label><input id="showCcf" type="checkbox"> CCF</label>
+      <label><input id="showCas" type="checkbox"> 中科院分区</label>
+      <label><input id="showJcr" type="checkbox"> JCR 分区</label>
+      <label><input id="showIf" type="checkbox"> 影响因子</label>
+      <label><input id="showWos" type="checkbox"> SCI / WoS</label>
+      <label><input id="showTop" type="checkbox"> 中科院 Top</label>
+    </div>
+  </section>
+
+  <section class="card theme-card">
+    <label for="colorTheme">
+      <span><strong>浮层颜色</strong><small>不受论文网站是否支持深色模式影响</small></span>
+      <select id="colorTheme">
+        <option value="light">浅色</option>
+        <option value="dark">深色</option>
+        <option value="system">跟随系统</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="card metadata">
+    <h2>本地数据</h2>
+    <dl>
+      <div><dt>期刊/会议</dt><dd id="recordCount">未加载</dd></div>
+      <div><dt>中科院</dt><dd id="casVersion">未加载</dd></div>
+      <div><dt>JCR / IF</dt><dd id="jcrVersion">未加载</dd></div>
+      <div><dt>CCF</dt><dd id="ccfVersion">未加载</dd></div>
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="section-title"><h2>数据更新</h2><label class="inline-toggle"><input id="autoCheckUpdates" type="checkbox"> 每周检查</label></div>
+    <div class="actions">
+      <button id="checkUpdates" type="button">立即检查</button>
+      <button id="installUpdates" class="secondary" type="button">同步数据库</button>
+      <button id="clearJournalCache" class="secondary" type="button">清除期刊缓存</button>
+    </div>
+    <p id="lastChecked" class="muted">尚未检查</p>
+  </section>
+
+  <section class="card news">
+    <h2>数据动态</h2>
+    <div id="newsList"><p class="muted">正在读取…</p></div>
+  </section>
+
+  <p class="hint">标签和详情使用悬停显示。评级匹配在本地完成；缺失的期刊发行商按 ISSN 查询 Crossref。</p>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

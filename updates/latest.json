@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "product": "journal-conference-rank-assistant",
+  "version": "2026.07.12.1",
+  "publishedAt": "2026-07-12T02:54:52.648Z",
+  "dataVersions": {
+    "cas": "2025",
+    "jcr": "2025",
+    "ccf": "2026"
+  },
+  "records": 23413,
+  "bundleUrl": "https://raw.githubusercontent.com/PolarisLight/Journal-Conference-Rank-Assistant/main/updates/catalog-2026.07.12.1.prdb",
+  "sha256": "bfa344ff322ee52eb9785343b6961cffb9405cbf2114e62a502751aed2aa4ef3",
+  "size": 6696121,
+  "signatureAlgorithm": "ECDSA_P256_SHA256"
+}

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "repository": "PolarisLight/Journal-Conference-Rank-Assistant",
+  "news": [
+    {
+      "date": "2026-07-12",
+      "title": "启用官方签名数据库更新",
+      "detail": "更新只从本插件发布仓库下载，并通过 ECDSA P-256、SHA-256 与 AES-GCM 三层校验。"
+    },
+    {
+      "date": "2026-07-12",
+      "title": "插件正式更名",
+      "detail": "名称改为“期刊会议等级与分区助手”，明确覆盖 CCF、中科院、JCR、SCI 与影响因子。"
+    },
+    {
+      "date": "2026-07-12",
+      "title": "期刊元数据按需补全",
+      "detail": "悬停期刊详情时按 ISSN 查询 Crossref 出版社与研究方向，并缓存 30 天。"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+sources/private/
+extension/data/journals.private.json
+extension/data/build-info.private.json
+extension/data/journals-*.private.json
+extension/data/catalog-*.private.json
+extension/data/journals-*.private.js
+.keys/
+.learnings/
+build/
+work/
+dist/
+INSTALL-*/
+INSTALL-*.crx
+INSTALL-*.xpi
+*.zip
+__pycache__/
+*.pyc

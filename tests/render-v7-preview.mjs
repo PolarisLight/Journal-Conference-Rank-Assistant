@@ -1,0 +1,17 @@
+import fs from "node:fs";
+import path from "node:path";
+const { JSDOM } = await import("file:///C:/Users/polaris/Documents/Codex/2026-07-12/ch/work/testdeps/node_modules/jsdom/lib/api.js");
+const root = process.argv[2];
+const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../extension/content/badges.css"><style>body{font-family:Arial,sans-serif;background:#f8fafc;color:#1d2939;padding:40px}.paper{max-width:920px;background:#fff;border:1px solid #e4e7ec;padding:22px}.title{font-size:18px;font-weight:700}.data{margin-top:10px;font-size:14px;color:#475467}</style></head><body><div class="paper"><li class="entry article"><cite class="data">A. Author: <span class="title" itemprop="name">A practical example paper on long-tail learning.</span><span itemprop="isPartOf"><a id="venue" href="/db/journals/access/"><span itemprop="name">IEEE Access</span></a></span> 2026</cite></li></div></body></html>';
+const dom = new JSDOM(html,{url:"https://dblp.org/search?q=test",runScripts:"outside-only",pretendToBeVisual:true});
+const normalizer=fs.readFileSync(path.join(root,"extension/lib/normalizer.js"),"utf8");
+const script=fs.readFileSync(path.join(root,"extension/content/content-v7.js"),"utf8");
+dom.window.chrome={runtime:{getURL:(name)=>"moz-extension://test/"+name},storage:{local:{get:(d,c)=>c(d)}}};
+dom.window.fetch=async(value)=>{const file=path.join(root,"extension/data",String(value).split("/").at(-1));return{ok:true,status:200,json:async()=>JSON.parse(fs.readFileSync(file,"utf8"))}};
+dom.window.eval(normalizer);
+dom.window.eval(script);
+await new Promise((resolve)=>setTimeout(resolve,900));
+const detail=dom.window.document.querySelector(".rank-assistant-venue-detail");
+detail.click();
+fs.mkdirSync(path.join(root,"work"),{recursive:true});
+fs.writeFileSync(path.join(root,"work/ui-preview-v7.html"),dom.serialize(),"utf8");
