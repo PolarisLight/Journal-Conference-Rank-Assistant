@@ -1,89 +1,78 @@
-# Journal & Conference Rank Assistant
+<p align=center><img src=extension/icons/icon128.png width=88 height=88 alt=Extension-icon></p>
 
-[简体中文](README.md) | [English](README_EN.md)
+<h1 align=center>Journal & Conference Rank Assistant</h1>
 
-See journal and conference rankings directly beside academic search results, with no account or sign-in required. The extension supports Google Scholar, DBLP, Semantic Scholar, arXiv, OpenAlex, PubMed, CNKI, and Wanfang Data.
+<p align=center>See journal and conference rankings beside paper titles. No sign-in, with matching performed locally.</p>
 
-> Firefox listing name: **Journ. & Conf. Rank Assistant**
+<p align=center>
+  <a href=README.md>简体中文</a> ·
+  <a href=README_EN.md>English</a> ·
+  <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>Project website</a> ·
+  <a href=https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues>Report an issue</a>
+</p>
 
-Project website: https://polarislight.github.io/Journal-Conference-Rank-Assistant/
+![Journal and Conference Rank Assistant interface preview](submission/v0.11.0/promo-1400x560.png)
 
-## Information shown
+## Understand every venue at a glance
 
-- CCF A, B, and C recommendations, with a gray `CCF None` badge for unlisted venues
-- Combined CAS partition and Top-journal status, such as `CAS Zone 1 Top`
-- XinRui 2026 broad-field zones and Top status for 22,299 journals and 15 computer-science conferences
-- The latest 2025 CAS international-journal warning list, without historical warning entries
-- JCR Q1-Q4 and Journal Impact Factor reference information
-- Web of Science indexing types, including SCIE, SSCI, AHCI, and ESCI
-- Venue details such as canonical name, publisher, primary research topics, ISSN, data year, and source
-- Opaque hover cards explaining each badge and metric
-- CSSCI 2025-2026 source and extended lists, shown as distinct categories
-- The 2023 Peking University Chinese Core Journals list
-- The official Elsevier Ei Compendex serial list and 2023-2026 proceedings
-- Two-stage result filters: choose an index first, then select its allowed ranks or source types
-- A separate `Hide currently warned journals` switch, disabled by default
-- A draggable in-page filter launcher with an upper-right default and one-time guide
-- Whole-badge palette presets: soft, vivid, and color-blind friendly
+The extension places rank badges beside paper titles and explains each badge on hover. Newly loaded results are matched without reopening the popup.
 
-SCIE, SSCI, CSSCI, the PKU Core list, and Ei Compendex are independent indexing or title-list systems. They do not create another Q1-Q4 scale. Terms such as “SSCI Q1” normally refer to JCR quartiles, so quartiles appear only on the JCR badge.
+- CCF A, B, and C, with a gray `CCF None` badge for unlisted venues
+- Combined CAS partition and Top status, such as `CAS Zone 1 Top`
+- JCR Q1-Q4, impact factor, and Web of Science indexing types
+- CSSCI, PKU Core, Ei Compendex, XinRui partitions, and the current warning list
+- Venue details including canonical name, publisher, topics, ISSN, data year, and source
+- A draggable page filter for keeping papers by index, partition, or rank
+- Light, dark, and system-following panel themes
+- Soft, vivid, and color-blind-friendly badge palettes, with vivid selected by default
+
+<p align=center><img src=submission/v0.11.0/promo-440x280.png width=440 alt=Extension-interface></p>
+
+## Ranking and indexing coverage
+
+| System | Information shown | Data version |
+| --- | --- | --- |
+| CCF | A, B, C, None | 2026 |
+| CAS partitions | Zones 1-4, Top | 2025 |
+| XinRui partitions | Zones 1-4, Top | 2026 |
+| JCR | Q1-Q4, impact factor | 2025 |
+| Web of Science | SCIE, SSCI, AHCI, ESCI | Current local catalog |
+| CSSCI | Source and extended lists | 2025-2026 |
+| PKU Core | Chinese Core Journals | 2023 |
+| Ei Compendex | Source journals and proceedings | 2026-07-09 |
+| CAS warning list | Current list only | 2025 |
+
+The local catalog contains **35,093** journal and conference records. SCI, SCIE, SSCI, CSSCI, PKU Core, and Ei Compendex are different indexing or title-list systems. They do not define another Q1-Q4 scale. Phrases such as “SCI Q1” normally refer to JCR quartiles, so quartiles appear only on the JCR badge.
 
 ## Supported websites
 
-- Google Scholar
-- DBLP (`dblp.org`) and official mirrors under `uni-trier.de` and `dagstuhl.de`
-- Semantic Scholar
-- arXiv search results
-- OpenAlex Works search results
-- PubMed search results
-- CNKI public search results
-- Wanfang Data public search results
+Google Scholar · DBLP and its official mirrors · Semantic Scholar · arXiv · OpenAlex · PubMed · CNKI public search · Wanfang Data public search
 
-## Installation
+## Install v0.11.0
 
-Current test packages:
+| Browser | Package | Notes |
+| --- | --- | --- |
+| Chrome / Chromium | [Download CRX](releases/v0.11.0/Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx) | Local test package. Permanent installation still depends on Chrome Web Store signing |
+| Firefox | [Download XPI](releases/v0.11.0/Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi) | An unsigned package can only be loaded temporarily from `about:debugging#/runtime/this-firefox` |
 
-- [Chrome / Chromium CRX v0.11.0](releases/v0.11.0/Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx)
-- [Firefox XPI v0.11.0](releases/v0.11.0/Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi)
+Firefox v0.10.1 is currently under public Mozilla Add-ons review. The official installation link will be added after approval.
 
-An unsigned Firefox test package can only be loaded temporarily from `about:debugging#/runtime/this-firefox`. Permanent installation in standard Firefox requires Mozilla signing.
+## Privacy and data updates
 
-Firefox v0.10.1 has been submitted for a public Mozilla Add-ons review. This section will be updated with the official AMO installation link after approval.
+Ranking lookups run locally. The extension has no ads, analytics, user tracking, or developer-operated account system, and it does not upload queries or browsing history. Network access is limited to:
 
-Chrome Web Store publication is currently postponed. On ordinary Windows and macOS installations, a locally signed CRX is not a substitute for Chrome Web Store distribution.
+- checking and downloading signed database updates from this repository
+- querying the official DBLP JSON API when a results page is temporarily unavailable
+- querying Crossref by journal name or ISSN when metadata is missing, with results cached locally for 30 days
 
-## Data updates
+The extension checks for updates every seven days but never replaces the database automatically. After the user clicks the update button, it verifies the encrypted bundle with SHA-256 and ECDSA P-256, then stores it using AES-GCM.
 
-The extension checks this repository's `updates/latest.json` every seven days. It only shows an update notification and does not replace the database without user action. When the user chooses to download an update, the extension:
+Read the full [Privacy Policy](PRIVACY.md).
 
-1. downloads an encrypted `.prdb` data bundle from this repository;
-2. verifies its SHA-256 digest;
-3. verifies its ECDSA P-256 signature using the public key bundled with the extension; and
-4. decrypts and stores the verified data locally using AES-GCM.
+<details>
+<summary><strong>Maintainer build instructions</strong></summary>
 
-The runtime extension does not download CSV files from third-party data repositories. Public upstream data is processed offline by the maintainer when preparing a signed update.
-
-## Privacy and network access
-
-Ranking lookups are performed locally. The extension has no ads, analytics, user tracking, or developer-operated account system. Network access is limited to:
-
-- checking and downloading signed database updates from this repository;
-- querying the official DBLP JSON API when a DBLP results page is temporarily unavailable; and
-- querying Crossref by journal name or ISSN when publisher or subject metadata is missing, with results cached locally for 30 days.
-
-See the full [Privacy Policy](PRIVACY.md).
-
-## Themes and interaction
-
-- Light, dark, and system-following themes
-- Soft, vivid, and color-blind-friendly badge palettes
-- Inline badges attached to publication titles
-- Hover details for rankings, years, metric meanings, and venue metadata
-- Performance-conscious handling of dynamically loaded result pages
-
-## Local data build
-
-After preparing the private CSV inputs, maintainers can run:
+After preparing the private CSV inputs, run:
 
 ```powershell
 python scripts/build_private_data.py
@@ -94,15 +83,18 @@ node scripts/encrypt_runtime_catalog.mjs
 node scripts/build_signed_update.mjs 2026.07.13.2
 ```
 
-Plaintext inputs, private signing keys, and build caches are excluded by `.gitignore`. The public repository contains readable extension source code, encrypted data shards, the verification public key, and signed update bundles.
+Plaintext inputs, private signing keys, and build caches are excluded by `.gitignore`. Browser packages contain no `*.private.json` files.
 
+</details>
 
-## Support
+## Data and naming notice
 
-Please report bugs and feature requests through [GitHub Issues](https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues).
+The offline inputs for base CCF, JCR, CAS partitions, XinRui 2026, and the current warning list are derived from GPL-3.0-licensed [`hitfyd/ShowJCR`](https://github.com/hitfyd/ShowJCR) exports, with upstream version metadata retained.
 
-## Disclaimer
+This project is not affiliated with or endorsed by the relevant ranking bodies, databases, search providers, or publishers. Rankings, quartiles, indexing information, and impact factors are references only. Always consult the latest official information before formal evaluation or submission decisions.
 
-The offline build inputs for CCF, JCR, CAS partitions, XinRui 2026, and the latest warning list are derived from the GPL-3.0-licensed `hitfyd/ShowJCR` exports, with upstream version metadata retained. Only the latest 2025 warning list is included.
-
-This project is not affiliated with or endorsed by XinRui Scholar, the China Computer Federation, the National Science Library of the Chinese Academy of Sciences, Clarivate, Google, DBLP, Crossref, or any publisher. Rankings, quartiles, indexing information, and impact factors are provided only as search and submission references. Always consult the latest information published by the relevant official organization or database before making formal evaluation or submission decisions.
+<p align=center>
+  <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>Project website</a> ·
+  <a href=PRIVACY.md>Privacy</a> ·
+  <a href=https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues>Issues</a>
+</p>
