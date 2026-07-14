@@ -25,6 +25,9 @@ function applyLanguage(language) {
   document.querySelectorAll("[data-aria-zh][data-aria-en]").forEach((element) => {
     element.setAttribute("aria-label", element.dataset[`aria${lang === "en" ? "En" : "Zh"}`]);
   });
+  document.querySelectorAll("[data-alt-zh][data-alt-en]").forEach((element) => {
+    element.setAttribute("alt", element.dataset[`alt${lang === "en" ? "En" : "Zh"}`]);
+  });
   document.querySelectorAll("[data-language]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.language === lang));
   });

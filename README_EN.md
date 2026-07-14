@@ -8,6 +8,7 @@
   <a href=README.md>简体中文</a> ·
   <a href=README_EN.md>English</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>Project website</a> ·
+  <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support>Support the project</a> ·
   <a href=https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues>Report an issue</a>
 </p>
 
@@ -56,6 +57,23 @@ Google Scholar · DBLP and its official mirrors · Semantic Scholar · arXiv · 
 | Firefox | [Download XPI](releases/v0.11.0/Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi) | An unsigned package can only be loaded temporarily from `about:debugging#/runtime/this-firefox` |
 
 Firefox v0.10.1 is currently under public Mozilla Add-ons review. The official installation link will be added after approval.
+
+## Support the project
+
+The extension will remain free and ad-free. If it saves you time, you can support data curation, browser compatibility testing, and ongoing maintenance through WeChat Pay or Alipay. Sponsorship does not unlock extra features and is not a purchase or subscription. Please verify the recipient name before paying.
+
+<table>
+  <tr>
+    <th align="center">WeChat Pay</th>
+    <th align="center">Alipay</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/support-wechat.jpg" width="280" alt="WeChat Pay payment QR code"></td>
+    <td align="center"><img src="docs/assets/support-alipay.jpg" width="280" alt="Alipay payment QR code"></td>
+  </tr>
+</table>
+
+The same options are also available in the [support section on the project website](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support).
 
 ## Privacy and data updates
 
