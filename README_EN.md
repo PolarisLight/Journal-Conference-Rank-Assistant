@@ -11,7 +11,7 @@
   <a href=https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues>Report an issue</a>
 </p>
 
-![Journal and Conference Rank Assistant interface preview](submission/v0.11.0/promo-1400x560.png)
+![Journal and Conference Rank Assistant interface preview](submission/v0.11.0/promo-1400x560-en.png)
 
 ## Understand every venue at a glance
 
@@ -26,7 +26,7 @@ The extension places rank badges beside paper titles and explains each badge on 
 - Light, dark, and system-following panel themes
 - Soft, vivid, and color-blind-friendly badge palettes, with vivid selected by default
 
-<p align=center><img src=submission/v0.11.0/promo-440x280.png width=440 alt=Extension-interface></p>
+<p align=center><img src=submission/v0.11.0/promo-440x280-en.png width=440 alt=Extension-interface></p>
 
 ## Ranking and indexing coverage
 
