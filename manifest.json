@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "期刊会议等级与分区助手",
-  "version": "0.10.1",
-  "description": "在 Google Scholar、DBLP 等页面显示 CCF、中科院、JCR、SCI、IF 与期刊会议信息。",
+  "version": "0.11.0",
+  "description": "显示 CCF、中科院、JCR、WoS、CSSCI、北大核心、EI，并按索引与分区筛选论文。",
   "browser_specific_settings": {
     "gecko": {
       "id": "journal-conference-rank-assistant@polarislight.github.io",
@@ -47,6 +47,15 @@
       "matches": [
         "https://scholar.google.com/*",
         "https://scholar.googleusercontent.com/*",
+        "https://www.semanticscholar.org/*",
+        "https://semanticscholar.org/*",
+        "https://arxiv.org/*",
+        "https://openalex.org/*",
+        "https://www.openalex.org/*",
+        "https://pubmed.ncbi.nlm.nih.gov/*",
+        "https://kns.cnki.net/*",
+        "https://kns8.cnki.net/*",
+        "https://s.wanfangdata.com.cn/*",
         "https://dblp.org/*",
         "https://*.dblp.org/*",
         "https://dblp.uni-trier.de/*",
@@ -56,10 +65,12 @@
       ],
       "js": [
         "extension/lib/normalizer.js",
-        "extension/content/content-v7.js"
+        "extension/content/content-v7.js",
+        "extension/content/filter-ui.js"
       ],
       "css": [
-        "extension/content/badges.css"
+        "extension/content/badges.css",
+        "extension/content/palettes.css"
       ],
       "run_at": "document_idle"
     }

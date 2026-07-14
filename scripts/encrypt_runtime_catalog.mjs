@@ -6,9 +6,9 @@ import { webcrypto } from "node:crypto";
 const dataDir = path.resolve("extension/data");
 const digest = await webcrypto.subtle.digest("SHA-256", new TextEncoder().encode("Journal Conference Rank Assistant packaged data v1"));
 const key = await webcrypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt"]);
-const files = fs.readdirSync(dataDir).filter((name) => /^catalog-shard-[0a-z]\.private\.json$/.test(name)).sort();
-if (files.length !== 27) throw new Error("Expected 27 plaintext shards, found " + files.length);
-for (const stale of fs.readdirSync(dataDir).filter((name) => /^catalog-shard-[0a-z]\.encrypted\.json$/.test(name))) {
+const files = fs.readdirSync(dataDir).filter((name) => /^catalog-shard-(?:[0a-z]|other)\.private\.json$/.test(name)).sort();
+if (files.length !== 28) throw new Error("Expected 28 plaintext shards, found " + files.length);
+for (const stale of fs.readdirSync(dataDir).filter((name) => /^catalog-shard-(?:[0a-z]|other)\.encrypted\.json$/.test(name))) {
   fs.rmSync(path.join(dataDir, stale));
 }
 let total = 0;

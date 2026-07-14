@@ -3,19 +3,29 @@
   "repository": "PolarisLight/Journal-Conference-Rank-Assistant",
   "news": [
     {
-      "date": "2026-07-12",
-      "title": "启用官方签名数据库更新",
-      "detail": "更新只从本插件发布仓库下载，并通过 ECDSA P-256、SHA-256 与 AES-GCM 三层校验。"
+      "date": "2026-07-13",
+      "title": "新增新锐与当前预警",
+      "detail": "新增新锐 2026 期刊与会议分区，并加入 2025 最新国际期刊预警名单及“隐藏当前预警期刊”筛选。"
+    },
+    {
+      "date": "2026-07-13",
+      "title": "合并中文期刊重复记录",
+      "detail": "合并 178 组重复期刊记录，保留 CSSCI、北大核心和 EI 等全部索引信息，避免同一期刊显示不同标签。"
     },
     {
       "date": "2026-07-12",
-      "title": "插件正式更名",
-      "detail": "名称改为“期刊会议等级与分区助手”，明确覆盖 CCF、中科院、JCR、SCI 与影响因子。"
+      "title": "新增社科、中文核心与 EI",
+      "detail": "加入 SSCI 说明、CSSCI 2025–2026、北大核心 2023 和 Elsevier 官方 Ei Compendex 来源表。"
     },
     {
       "date": "2026-07-12",
-      "title": "期刊元数据按需补全",
-      "detail": "悬停期刊详情时按 ISSN 查询 Crossref 出版社与研究方向，并缓存 30 天。"
+      "title": "新增两级论文筛选",
+      "detail": "先选 CCF、JCR、中科院、CSSCI、WoS、EI 或北大核心，再勾选允许的等级或类型。"
+    },
+    {
+      "date": "2026-07-12",
+      "title": "签名数据库继续启用",
+      "detail": "更新只从本插件发布仓库下载，并通过 ECDSA P-256、SHA-256 与 AES-GCM 校验。"
     }
   ]
 }

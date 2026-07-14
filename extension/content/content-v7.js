@@ -10,16 +10,26 @@
     showIf: true,
     showWos: true,
     showTop: true,
-    colorTheme: "light"
+    showCssci: true,
+    showPku: true,
+    showEi: true,
+    showXinrui: true,
+    showWarning: true,
+    hideWarnedJournals: false,
+    colorTheme: "light",
+    colorPalette: "vivid",
+    resultFilters: { indexes: [], values: {} }
   };
   const STOP = new Set(["the", "of", "and", "for", "in", "on", "a", "an"]);
-  const state = { settings: DEFAULTS, shards: new Map(), shardPromises: new Map(), maxAliasWords: 12 };
+  const state = { settings: DEFAULTS, shards: new Map(), shardPromises: new Map(), maxAliasWords: 12, lastScanDetail: "" };
   let initialization = null;
   const controlDetails = new WeakMap();
   let tooltipHost = null;
   let tooltipPanel = null;
   let hideTimer = null;
   const systemDarkMode = window.matchMedia("(prefers-color-scheme: dark)");
+  const DBLP_RESULT_TIMEOUT_MS = Math.max(250, Number(globalThis.__PAPER_RANK_DBLP_TIMEOUT_MS) || 5000);
+  let dblpRecoveryPromise = null;
 
   function resolvedColorTheme() {
     const selected = state.settings.colorTheme || "light";
@@ -31,14 +41,29 @@
     document.documentElement.dataset.paperRankTheme = resolved;
     if (tooltipHost) tooltipHost.dataset.theme = resolved;
   }
+  function syncColorPalette() {
+    const selected = ["soft", "vivid", "colorblind"].includes(state.settings.colorPalette)
+      ? state.settings.colorPalette
+      : "vivid";
+    document.documentElement.dataset.paperRankPalette = selected;
+  }
 
   if (systemDarkMode.addEventListener) systemDarkMode.addEventListener("change", syncColorTheme);
   else if (systemDarkMode.addListener) systemDarkMode.addListener(syncColorTheme);
   if (chrome.storage?.onChanged?.addListener) {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "local" || !changes.colorTheme) return;
-      state.settings.colorTheme = changes.colorTheme.newValue || "light";
-      syncColorTheme();
+      if (area !== "local") return;
+      let rerender = false;
+      for (const key of Object.keys(DEFAULTS)) {
+        if (!changes[key]) continue;
+        state.settings[key] = changes[key].newValue ?? DEFAULTS[key];
+        if (key === "colorTheme") syncColorTheme();
+        else if (key === "colorPalette") syncColorPalette();
+        else rerender = true;
+      }
+      if (rerender) {
+        setTimeout(resetRenderedResults, 0);
+      }
     });
   }
 
@@ -56,13 +81,76 @@
     return new Promise((resolve) => chrome.storage.local.get(DEFAULTS, resolve));
   }
 
+  function siteKind() {
+    const host = location.hostname.toLowerCase();
+    if (/(^|\.)dblp\.(org|uni-trier\.de|dagstuhl\.de)$/.test(host)) return "dblp";
+    if (host === "scholar.google.com" || host === "scholar.googleusercontent.com") return "scholar";
+    if (host === "arxiv.org") return "arxiv";
+    if (host === "pubmed.ncbi.nlm.nih.gov") return "pubmed";
+    if (host === "www.semanticscholar.org" || host === "semanticscholar.org") return "semantic-scholar";
+    if (host === "openalex.org" || host === "www.openalex.org") return "openalex";
+    if (host === "kns.cnki.net" || host === "kns8.cnki.net") return "cnki";
+    if (host === "s.wanfangdata.com.cn") return "wanfang";
+    return "unknown";
+  }
+
   function isDblp() {
-    return /(^|\.)dblp\.(org|uni-trier\.de|dagstuhl\.de)$/.test(location.hostname);
+    return siteKind() === "dblp";
+  }
+
+  function resultSelector() {
+    const site = siteKind();
+    if (site === "dblp") return "li.entry, article.entry";
+    if (site === "scholar") return ".gs_r.gs_or.gs_scl, .gs_r";
+    if (site === "arxiv") return "li.arxiv-result";
+    if (site === "pubmed") return "article.full-docsum";
+    if (site === "semantic-scholar") return '[data-testid="paper-row"], [data-selenium-selector="paper-row"], .cl-paper-row, a[href*="/paper/"]';
+    if (site === "openalex") return '[data-testid="work-result"], [data-testid="work-card"], a[href^="/works/"], a[href*="openalex.org/works/"]';
+    if (site === "cnki") return '.result-table-list tbody tr, table.result-table-list tbody tr, .result-item, a[href*="/kcms2/article/abstract"], a[href*="/kns8s/detail/detail.aspx"], a[href*="/detail/detail.aspx"]';
+    if (site === "wanfang") return '.normal-list-item, .result-item, .paper-item, a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]';
+    return "";
+  }
+
+  function containersFromTitleLinks(linkSelector, preferredSelector) {
+    const containers = [];
+    const seen = new Set();
+    for (const link of document.querySelectorAll(linkSelector)) {
+      let container = link.closest(preferredSelector);
+      if (!container) {
+        container = link;
+        for (let depth = 0; depth < 4 && container?.parentElement; depth += 1) container = container.parentElement;
+      }
+      if (!container || container === document.body || container === document.documentElement || seen.has(container)) continue;
+      seen.add(container);
+      containers.push(container);
+    }
+    return containers;
   }
 
   function resultContainers() {
-    if (isDblp()) return document.querySelectorAll("li.entry, article.entry");
-    return document.querySelectorAll(".gs_r.gs_or.gs_scl, .gs_r");
+    const site = siteKind();
+    if (site === "dblp" && location.pathname.startsWith("/search")) {
+      const section = document.querySelector("#completesearch-publs");
+      return section ? section.querySelectorAll("li.entry, article.entry") : document.querySelectorAll("li.entry, article.entry");
+    }
+    if (site === "semantic-scholar") {
+      const direct = document.querySelectorAll('[data-testid="paper-row"], [data-selenium-selector="paper-row"], .cl-paper-row');
+      return direct.length ? direct : containersFromTitleLinks('a[href*="/paper/"]', 'article, li, [data-testid*="paper"], [class*="paper-row"]');
+    }
+    if (site === "openalex") {
+      const direct = document.querySelectorAll('[data-testid="work-result"], [data-testid="work-card"], article.work-result');
+      return direct.length ? direct : containersFromTitleLinks('a[href^="/works/"], a[href*="openalex.org/works/"]', 'article, li, [data-testid*="work"], [class*="result"], [class*="card"]');
+    }
+    if (site === "cnki") {
+      const direct = document.querySelectorAll('.result-table-list tbody tr, table.result-table-list tbody tr, .result-item');
+      return direct.length ? direct : containersFromTitleLinks('a[href*="/kcms2/article/abstract"], a[href*="/kns8s/detail/detail.aspx"], a[href*="/detail/detail.aspx"]', 'tr, li, .result-item, [class*="result"]');
+    }
+    if (site === "wanfang") {
+      const direct = document.querySelectorAll('.normal-list-item, .result-item, .paper-item');
+      return direct.length ? direct : containersFromTitleLinks('a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]', 'article, li, .normal-list-item, .result-item, .paper-item, [class*="result"]');
+    }
+    const selector = resultSelector();
+    return selector ? document.querySelectorAll(selector) : [];
   }
 
   function shardKey(value) {
@@ -73,7 +161,7 @@
   }
 
   async function loadShard(key) {
-    if (!key || key === "other") return null;
+    if (!key) return null;
     if (state.shards.has(key)) return state.shards.get(key);
     if (state.shardPromises.has(key)) return state.shardPromises.get(key);
     const promise = (async () => {
@@ -109,35 +197,91 @@
       .map((token) => token.slice(0, 4)).join(" ");
   }
 
+  function firstMatchingTextNode(container, selectors, pattern = null) {
+    for (const selector of selectors) {
+      for (const node of container.querySelectorAll(selector)) {
+        if (!pattern || pattern.test((node.textContent || "").trim())) return node;
+      }
+    }
+    return null;
+  }
+
   function metadataNode(container) {
-    if (isDblp()) return container.querySelector(".data, cite") || container;
-    return container.querySelector(".gs_a") || container.querySelector(".gs_ri") || container;
+    const site = siteKind();
+    if (site === "dblp") return container.querySelector(".data, cite") || container;
+    if (site === "scholar") return container.querySelector(".gs_a") || container.querySelector(".gs_ri") || container;
+    if (site === "pubmed") return container.querySelector(".docsum-journal-citation") || container;
+    if (site === "arxiv") return firstMatchingTextNode(container, [".comments", ".journal-ref", "p"], /^(Comments|Journal reference):/i) || container;
+    if (site === "semantic-scholar") return container.querySelector('[data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]') || container;
+    if (site === "openalex") return container.querySelector('[data-testid="source"], [data-testid="venue"], [class*="source"], [class*="venue"]') || container;
+    if (site === "cnki") return container.querySelector('td.source a, .source a, [data-field="source"] a') || container.querySelector('td.source, .source, [data-field="source"]') || container;
+    if (site === "wanfang") return container.querySelector('.source a, .periodical a, .journal a, [class*="magazine"] a') || container.querySelector('.source, .periodical, .journal, [class*="magazine"]') || container;
+    return container;
   }
 
   function titleNode(container) {
-    if (isDblp()) {
-      return container.querySelector('span.title[itemprop="name"], .title');
-    }
-    return container.querySelector(".gs_rt");
+    const site = siteKind();
+    if (site === "dblp") return container.querySelector('span.title[itemprop="name"], .title');
+    if (site === "scholar") return container.querySelector(".gs_rt");
+    if (site === "arxiv") return container.querySelector(".title");
+    if (site === "pubmed") return container.querySelector(".docsum-title");
+    if (site === "semantic-scholar") return container.querySelector('a[href*="/paper/"]');
+    if (site === "openalex") return container.querySelector('a[href^="/works/"], a[href*="openalex.org/works/"]');
+    if (site === "cnki") return container.querySelector('td.name a, .name a, a.fz14, a[href*="/kcms2/article/abstract"], a[href*="/kns8s/detail/detail.aspx"], a[href*="/detail/detail.aspx"]');
+    if (site === "wanfang") return container.querySelector('.title a, a.title, a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]');
+    return null;
   }
 
   function venueNode(container) {
-    if (isDblp()) {
+    const site = siteKind();
+    if (site === "dblp") {
       return container.querySelector(
         '.data [itemprop="isPartOf"] a, cite [itemprop="isPartOf"] a, .data a[href*="/db/"], cite a[href*="/db/"], .rank-assistant-fallback-venue'
       );
     }
-    return metadataNode(container);
+    if (site === "scholar" || site === "pubmed") return metadataNode(container);
+    if (site === "arxiv") return firstMatchingTextNode(container, [".journal-ref", ".comments", "p"], /^(Journal reference|Comments):/i);
+    if (site === "semantic-scholar") return container.querySelector('[data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]');
+    if (site === "openalex") return container.querySelector('[data-testid="source"], [data-testid="venue"], [class*="source"], [class*="venue"]');
+    if (site === "cnki") return container.querySelector('td.source a, .source a, [data-field="source"] a') || container.querySelector('td.source, .source, [data-field="source"]');
+    if (site === "wanfang") return container.querySelector('.source a, .periodical a, .journal a, [class*="magazine"] a') || container.querySelector('.source, .periodical, .journal, [class*="magazine"]');
+    return null;
+  }
+
+  function dblpKeyFromHref(href) {
+    if (!href) return "";
+    try {
+      const pathname = new URL(href, location.href).pathname;
+      const match = pathname.match(/^\/db\/([^/]+)\/([^/]+)\//);
+      return match ? `/db/${match[1]}/${match[2]}/` : "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function dblpVenueKey(container) {
+    return dblpKeyFromHref(venueNode(container)?.getAttribute?.("href"));
   }
 
   function candidateText(container) {
-    if (isDblp()) {
+    const site = siteKind();
+    if (site === "dblp") {
       const venue = venueNode(container);
       if (venue) return venue.textContent || "";
     }
-    const raw = metadataNode(container).textContent || "";
-    const parts = raw.split(/\s+-\s+/);
-    if (parts.length >= 2) return parts[1].replace(/,\s*\d{4}.*$/, "").trim();
+    const raw = (metadataNode(container).textContent || "").trim();
+    if (site === "scholar") {
+      const parts = raw.split(/\s+-\s+/);
+      if (parts.length >= 2) return parts[1].replace(/,\s*\d{4}.*$/, "").trim();
+    }
+    if (site === "pubmed") return raw.replace(/\b(?:19|20)\d{2}\b.*$/, "").replace(/[.;,\s]+$/, "").trim();
+    if (site === "arxiv") return raw.replace(/^(Comments|Journal reference):\s*/i, "").trim();
+    if (site === "cnki" || site === "wanfang") {
+      const venue = venueNode(container);
+      if (venue) return (venue.textContent || "").trim();
+      const labeled = raw.match(/(?:来源|刊名)[:：]\s*([^\n;；]+)/);
+      return labeled ? labeled[1].trim() : "";
+    }
     return raw;
   }
   function recordInShard(key, normalized, abbreviated) {
@@ -156,11 +300,47 @@
     return recordInShard(shardKey(normalized), normalized, abbreviationKey(normalized));
   }
 
+  function recordCompleteness(record) {
+    if (!record) return -1;
+    return [1, 4, 8, 9, 12, 16, 17, 20, 24, 26, 28, 32, 34]
+      .reduce((score, index) => score + (record[index] ? 1 : 0), 0);
+  }
+
+  function fuzzyAbbreviationRecord(normalized) {
+    const candidate = abbreviationKey(normalized);
+    const candidateTokens = candidate.split(" ").filter(Boolean);
+    if (candidateTokens.length < 2) return null;
+    const shard = state.shards.get(shardKey(normalized));
+    if (!shard) return null;
+    let best = null;
+    let bestScore = -1;
+    for (const [stored, index] of Object.entries(shard.b)) {
+      const storedTokens = stored.split(" ");
+      if (storedTokens.length !== candidateTokens.length) continue;
+      if (!candidateTokens.every((token, position) =>
+        storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
+      )) continue;
+      const record = shard.r[index] || null;
+      const prefixScore = candidateTokens.reduce(
+        (score, token, position) => score + Math.min(token.length, storedTokens[position].length),
+        0
+      );
+      const score = recordCompleteness(record) * 100 + prefixScore;
+      if (score > bestScore) {
+        best = record;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
   function matchRecord(text) {
     const normalized = N.normalize(text);
     if (!normalized) return null;
     const exact = exactRecord(normalized);
     if (exact) return exact;
+    const abbreviated = fuzzyAbbreviationRecord(normalized);
+    if (abbreviated) return abbreviated;
     const words = normalized.split(" ");
     for (let size = Math.min(state.maxAliasWords, words.length); size >= 1; size -= 1) {
       for (let start = 0; start <= words.length - size; start += 1) {
@@ -339,14 +519,20 @@
     element.addEventListener("mouseleave", () => hideTooltip());
     return element;
   }
-  function badge(kind, label, title, rows, note) {
-    return control("rank-assistant-badge", kind, label, title, rows, note);
+  function badge(kind, label, title, rows, note, level = "") {
+    const element = control("rank-assistant-badge", kind, label, title, rows, note);
+    if (level || level === 0) element.dataset.level = String(level).toLowerCase();
+    return element;
   }
 
   function recordType(record) {
     if (record?.[2]?.includes("会议")) return "会议";
     if (record?.[2]?.includes("刊物")) return "期刊";
-    if (record?.[4] || record?.[8] || record?.[12]) return "期刊";
+    if (/conference/i.test(record?.[34] || "")) return "会议";
+    if (/journal/i.test(record?.[34] || "")) return "期刊";
+    if (/proceed/i.test(record?.[25] || "")) return "会议";
+    if (/journal|serial|magazine/i.test(record?.[25] || "")) return "期刊";
+    if (record?.[4] || record?.[8] || record?.[12] || record?.[17] || record?.[20]) return "期刊";
     return "来源";
   }
 
@@ -365,6 +551,10 @@
       record?.[6],
       record?.[10],
       record?.[14],
+      record?.[19],
+      record?.[22],
+      record?.[30],
+      ...(Array.isArray(record?.[26]) ? record[26] : []),
       ...(Array.isArray(remoteSubjects) ? remoteSubjects : [])
     ].map((value) => String(value || "").trim()).filter(Boolean))].join("；");
   }
@@ -375,6 +565,8 @@
       { label: "类型", value: recordType(record) },
       { label: "发行商", value: record[16] || (recordType(record) === "期刊" ? "查询中…" : "无") },
       { label: "主要方向", value: researchDirections(record) || "暂无分类信息" },
+      ...(record[28] ? [{ label: "新锐分区", value: record[28] + "区" + (record[29] ? " Top" : "") + " · " + record[31] }] : []),
+      ...(record[32] ? [{ label: "当前预警", value: record[32] + (record[33] ? " · " + record[33] : "") }] : []),
       { label: "ISSN", value: Array.isArray(record[13]) ? record[13].join(", ") : record[13] },
       { label: "信息来源", value: record[16] ? "本地目录" : "本地目录 + Crossref" }
     ];
@@ -386,6 +578,19 @@
     row.dataset.paperRank = "1";
     const s = state.settings;
 
+    if (s.showWarning && record?.[32]) {
+      row.appendChild(badge(
+        "warning",
+        "预警 " + record[32],
+        "中国科学院国际期刊预警名单",
+        [
+          { label: "名单年份", value: record[32] },
+          { label: "预警原因", value: record[33] }
+        ],
+        "本标签仅使用插件所载的 2025 年最新名单，不包含历年预警。预警是期刊层面的风险提示，不代表对其中每篇论文的判定。"
+      ));
+    }
+
     if (s.showCcf) {
       if (record?.[1]) {
         row.appendChild(badge(
@@ -393,7 +598,8 @@
           "CCF " + record[1],
           "CCF 推荐目录",
           ccfRows(record),
-          "本地 CCF 2026 数据。"
+          "本地 CCF 2026 数据。",
+          record[1]
         ));
       } else {
         row.appendChild(badge(
@@ -420,7 +626,8 @@
           { label: "Top", value: record[5] ? "是" : "否" },
           { label: "年份", value: record[7] }
         ],
-        "中科院期刊分区表由中国科学院文献情报中心科学计量中心研制。大类分区按 13 个较宽领域划分为 1–4 区，1 区层级最高，Top 是额外标记。本页显示大类分区；它与按较细 WoS 学科计算的 JCR Q1–Q4 不是同一体系。分区属于定量参考，不宜单独用于个人评价。"
+        "中科院期刊分区表由中国科学院文献情报中心科学计量中心研制。大类分区按 13 个较宽领域划分为 1–4 区，1 区层级最高，Top 是额外标记。本页显示大类分区；它与按较细 WoS 学科计算的 JCR Q1–Q4 不是同一体系。分区属于定量参考，不宜单独用于个人评价。",
+        record[4]
       ));
     } else if (s.showTop && record[5]) {
       row.appendChild(badge(
@@ -435,6 +642,23 @@
         "Top 标记来自中科院期刊分区表。"
       ));
     }
+    if (s.showXinrui && record[28]) {
+      row.appendChild(badge(
+        "xinrui",
+        "新锐 " + record[28] + "区" + (record[29] ? " Top" : ""),
+        "新锐学术分区",
+        [
+          { label: "大类分区", value: record[28] + "区" },
+          { label: "学科", value: record[30] },
+          { label: "类型", value: record[34] === "Conference" ? "会议" : "期刊" },
+          { label: "Top", value: record[29] ? "是" : "否" },
+          { label: "年份", value: record[31] }
+        ],
+        "新锐分区由新锐学术发布，本页显示大类 1–4 区。它是独立的分区体系，与中科院期刊分区和 JCR Q1–Q4 都不是同一套标准。",
+        record[28]
+      ));
+    }
+
     if (s.showJcr && record[8]) {
       row.appendChild(badge(
         "jcr",
@@ -446,7 +670,8 @@
           { label: "影响因子", value: record[9] },
           { label: "年份", value: record[11] }
         ],
-        "JCR 分区按学科类别计算，同一本期刊在不同学科可能有不同分区。本插件显示最佳分区。"
+        "JCR 分区按学科类别计算，同一本期刊在不同学科可能有不同分区。本插件显示最佳分区。",
+        record[8]
       ));
     }
 
@@ -478,6 +703,52 @@
       ));
     }
 
+    if (s.showCssci && record[17]) {
+      const tierLabel = record[17] === "source" ? "来源" : "扩展";
+      row.appendChild(badge(
+        "cssci",
+        "CSSCI " + tierLabel,
+        "中文社会科学引文索引",
+        [
+          { label: "类型", value: "CSSCI " + tierLabel + "期刊" },
+          { label: "学科", value: record[19] },
+          { label: "版本", value: record[18] }
+        ],
+        record[17] === "source"
+          ? "CSSCI 来源期刊由南京大学中国社会科学研究评价中心遴选，常被俗称为“南大核心”或“C刊”。它与 SSCI、JCR 和北大核心是相互独立的体系。"
+          : "CSSCI 扩展版不是 CSSCI 来源期刊。插件明确分开显示，避免把“C扩”误写为“C刊”。",
+        record[17]
+      ));
+    }
+
+    if (s.showPku && record[20]) {
+      row.appendChild(badge(
+        "pku",
+        "北大核心",
+        "中文核心期刊要目总览",
+        [
+          { label: "版本", value: record[21] },
+          { label: "学科", value: record[22] },
+          { label: "CN", value: record[23] }
+        ],
+        "北大核心指北京大学图书馆与北京高校图书馆期刊工作研究会编制的《中文核心期刊要目总览》。它是入选目录，不是 Q1–Q4 分区，也不等同于 CSSCI。"
+      ));
+    }
+
+    if (s.showEi && record[24]) {
+      row.appendChild(badge(
+        "ei",
+        "EI",
+        "Ei Compendex 收录来源",
+        [
+          { label: "来源类型", value: record[25] },
+          { label: "主要方向", value: Array.isArray(record[26]) ? record[26].join("；") : record[26] },
+          { label: "数据日期", value: record[24] }
+        ],
+        "EI 标签表示该期刊或具体会议论文集出现在 Elsevier 官方 Compendex Source List。会议系列可能逐届变化，具体论文是否最终入库仍应以 Engineering Village 记录为准；EI 本身没有 Q1–Q4 分区。"
+      ));
+    }
+
     return row.children.length ? row : null;
   }
 
@@ -505,23 +776,97 @@
       metadataNode(container).prepend(row);
       return;
     }
-    if (isDblp()) title.insertAdjacentElement("afterend", row);
-    else title.appendChild(row);
+    if (siteKind() === "scholar") title.appendChild(row);
+    else title.insertAdjacentElement("afterend", row);
   }
 
   function attachVenueDetails(container, details) {
     const venue = venueNode(container);
     if (!venue) return;
-    if (isDblp()) venue.insertAdjacentElement("afterend", details);
-    else venue.appendChild(details);
+    if (siteKind() === "scholar") venue.appendChild(details);
+    else venue.insertAdjacentElement("afterend", details);
+  }
+
+  function filterValuesForRecord(index, record) {
+    if (index === "ccf") return [record?.[1] || "None"];
+    if (index === "jcr") return record?.[8] ? [record[8]] : [];
+    if (index === "cas") return [record?.[4], record?.[5] ? "Top" : ""].filter(Boolean);
+    if (index === "xinrui") return [record?.[28], record?.[29] ? "Top" : ""].filter(Boolean);
+    if (index === "cssci") return record?.[17] ? [record[17]] : [];
+    if (index === "pku") return record?.[20] ? ["included"] : [];
+    if (index === "wos") {
+      return String(record?.[12] || "").split(/[,;/]+/).map((value) => value.trim()).filter(Boolean);
+    }
+    if (index === "ei") {
+      if (!record?.[24]) return [];
+      const type = String(record?.[25] || "");
+      if (/journal|serial|magazine/i.test(type)) return ["Journal"];
+      if (/proceed|conference/i.test(type)) return ["Proceeding"];
+      return ["Other"];
+    }
+    return [];
+  }
+
+  function recordPassesFilters(record) {
+    if (state.settings.hideWarnedJournals && record?.[32]) return false;
+    const filters = state.settings.resultFilters || {};
+    const indexes = Array.isArray(filters.indexes) ? filters.indexes : [];
+    for (const index of indexes) {
+      const selected = Array.isArray(filters.values?.[index]) ? filters.values[index] : [];
+      if (!selected.length) continue;
+      const actual = filterValuesForRecord(index, record);
+      if (!selected.some((value) => actual.includes(value))) return false;
+    }
+    return true;
+  }
+
+  function resetRenderedResults() {
+    for (const container of resultContainers()) {
+      container.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+      container.classList.remove("rank-assistant-filter-hidden");
+      delete container.dataset.paperRankProcessed;
+      delete container.dataset.paperRankLoading;
+    }
+    if (!state.settings.enabled) return;
+    idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
   }
 
   function renderContainer(container, record) {
     container.dataset.paperRankProcessed = "1";
     delete container.dataset.paperRankLoading;
+    const visible = recordPassesFilters(record);
+    container.classList.toggle("rank-assistant-filter-hidden", !visible);
+    if (!visible) return;
     const row = renderBadges(record);
     if (row) attachTitleRow(container, row);
     if (record) attachVenueDetails(container, renderVenueDetails(record));
+  }
+
+  function unifyDblpVenueLineages(items) {
+    if (!isDblp()) return;
+    const linkedRecords = new Map();
+    for (const shard of state.shards.values()) {
+      for (const record of shard.r) {
+        const key = dblpKeyFromHref(record?.[15]);
+        if (!key) continue;
+        const current = linkedRecords.get(key);
+        if (recordCompleteness(record) > recordCompleteness(current)) linkedRecords.set(key, record);
+      }
+    }
+    const groups = new Map();
+    for (const item of items) {
+      const key = dblpVenueKey(item.container);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    }
+    for (const [key, group] of groups) {
+      const canonical = linkedRecords.get(key) || group.reduce(
+        (best, item) => recordCompleteness(item.record) > recordCompleteness(best) ? item.record : best,
+        null
+      );
+      if (canonical) for (const item of group) item.record = canonical;
+    }
   }
 
   async function scan() {
@@ -535,16 +880,30 @@
     });
 
     try {
+      if (isDblp()) {
+        const response = await sendRuntimeMessage({
+          type: "rank-assistant-match-dblp-venues",
+          items: items.map((item) => ({ text: item.text, key: dblpVenueKey(item.container) }))
+        });
+        if (response?.ok && Array.isArray(response.records) && response.records.length === items.length) {
+          response.records.forEach((record, index) => { items[index].record = record || null; });
+          state.lastScanDetail = (Number(response.shardCount) || 0) + " background data shards";
+          for (const item of items) renderContainer(item.container, item.record);
+          return;
+        }
+      }
       await ensureShards(items.map((item) => primaryShardForText(item.text)));
       const unresolved = [];
       for (const item of items) {
         item.record = exactRecord(item.text);
         if (!item.record) unresolved.push(item);
       }
-      if (unresolved.length) {
+      if (unresolved.length && !isDblp()) {
         await ensureShards(unresolved.flatMap((item) => secondaryShardsForText(item.text)));
-        for (const item of unresolved) item.record = matchRecord(item.text);
       }
+      for (const item of unresolved) item.record = matchRecord(item.text);
+      unifyDblpVenueLineages(items);
+      state.lastScanDetail = state.shards.size + " content data shards";
       for (const item of items) renderContainer(item.container, item.record);
     } catch (error) {
       for (const item of items) delete item.container.dataset.paperRankLoading;
@@ -553,7 +912,8 @@
   }
 
   function mutationContainsResults(records) {
-    const selector = isDblp() ? "li.entry, article.entry" : ".gs_r.gs_or.gs_scl, .gs_r";
+    const selector = resultSelector();
+    if (!selector) return false;
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (node.nodeType !== Node.ELEMENT_NODE) continue;
@@ -584,7 +944,7 @@
         await idle();
         await scan();
         watchDynamicResults();
-        setStatus("ready", state.shards.size + " data shards");
+        setStatus("ready", state.lastScanDetail || (state.shards.size + " data shards"));
       } catch (error) {
         setStatus("error", String(error?.message || error));
         console.error("[期刊会议等级与分区助手]", error);
@@ -597,7 +957,18 @@
     return author?.text || author?.name || "";
   }
 
-  function renderApiFallback(hits) {
+  function dblpSourceName(origin) {
+    try {
+      const host = new URL(origin).hostname;
+      if (host === "dblp.dagstuhl.de") return "DBLP Dagstuhl 镜像";
+      if (host === "dblp.uni-trier.de") return "DBLP Trier 镜像";
+      return "DBLP 主站";
+    } catch (_) {
+      return "DBLP";
+    }
+  }
+
+  function ensureDblpPublicationBody() {
     let section = document.querySelector("#completesearch-publs");
     if (!section) {
       section = document.createElement("section");
@@ -606,13 +977,71 @@
       section.innerHTML = '<header><h2>Publication search results</h2></header><div class="body"></div>';
       (document.querySelector("main") || document.body).appendChild(section);
     }
-    const body = section.querySelector(".body") || section;
+    return section.querySelector(".body") || section;
+  }
+
+  function renderDblpRecoveryStatus(kind, detail = "") {
+    const body = ensureDblpPublicationBody();
+    body.querySelector(".rank-assistant-fallback-notice")?.remove();
+    const notice = document.createElement("div");
+    notice.className = "rank-assistant-fallback-notice rank-assistant-fallback-" + kind;
+    notice.setAttribute("role", "status");
+    if (kind === "loading") {
+      notice.textContent = "DBLP 页面列表服务暂时不可用，期刊会议等级与分区助手正在通过官方 JSON API 恢复论文列表…";
+    } else {
+      body.querySelectorAll("ul.error, ul.waiting").forEach((node) => node.remove());
+      const message = document.createElement("span");
+      message.textContent = "期刊会议等级与分区助手未能从 DBLP 官方 API 恢复论文列表：" + detail + "。";
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "rank-assistant-fallback-retry";
+      retry.textContent = "重试";
+      retry.addEventListener("click", async () => {
+        dblpRecoveryPromise = null;
+        const recovered = await recoverDblpResults("manual-retry");
+        if (recovered && resultContainers().length) await initialize();
+      });
+      notice.append(message, retry);
+    }
+    body.prepend(notice);
+  }
+
+  async function fetchDblpPublicationsDirect(query) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const url = new URL("/search/publ/api", location.origin);
+      url.searchParams.set("q", query);
+      url.searchParams.set("h", "30");
+      url.searchParams.set("c", "0");
+      url.searchParams.set("format", "json");
+      const response = await fetch(url.href, {
+        signal: controller.signal,
+        credentials: "omit",
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const payload = await response.json();
+      const value = payload?.result?.hits?.hit || [];
+      const hits = Array.isArray(value) ? value : value ? [value] : [];
+      if (!hits.length) throw new Error("DBLP API returned no publications");
+      return { ok: true, cached: false, hits, sourceOrigin: location.origin };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function renderApiFallback(hits, recovery = {}) {
+    const body = ensureDblpPublicationBody();
     body.querySelectorAll("ul.error, ul.waiting").forEach((node) => node.remove());
     body.querySelector(".rank-assistant-fallback-list")?.remove();
+    body.querySelector(".rank-assistant-fallback-notice")?.remove();
 
     const notice = document.createElement("p");
     notice.className = "rank-assistant-fallback-notice";
-    notice.textContent = "DBLP 页面列表服务暂时不可用，以下结果由 DBLP 官方 JSON API 恢复。";
+    const cacheText = recovery.cached ? "（来自 10 分钟缓存）" : "";
+    notice.textContent = "DBLP 页面列表服务暂时不可用，以下结果由 " +
+      dblpSourceName(recovery.sourceOrigin) + " 官方 JSON API 恢复" + cacheText + "。";
     const list = document.createElement("ul");
     list.className = "publ-list rank-assistant-fallback-list";
 
@@ -641,33 +1070,54 @@
     body.prepend(notice);
   }
 
-  async function recoverDblpResults() {
-    if (!isDblp() || resultContainers().length || !location.pathname.startsWith("/search")) return false;
+  function dblpFailureVisible() {
     const section = document.querySelector("#completesearch-publs");
     const pageText = (section || document.body).textContent || "";
-    if (!/service temporarily not available|temporarily not available|no server is available/i.test(pageText)) return false;
-    const query = new URLSearchParams(location.search).get("q");
-    if (!query) return false;
-    try {
-      setStatus("recovering-results", "DBLP JSON API");
-      const url = new URL("/search/publ/api", location.origin);
-      url.searchParams.set("q", query);
-      url.searchParams.set("h", "30");
-      url.searchParams.set("c", "0");
-      url.searchParams.set("format", "json");
-      const response = await fetch(url.href, { credentials: "omit" });
-      if (!response.ok) throw new Error("DBLP API HTTP " + response.status);
-      const payload = await response.json();
-      const value = payload?.result?.hits?.hit || [];
-      const hits = Array.isArray(value) ? value : value ? [value] : [];
-      if (!hits.length) throw new Error("DBLP API returned no publications");
-      renderApiFallback(hits);
-      return true;
-    } catch (error) {
-      setStatus("api-unavailable", String(error?.message || error));
-      console.warn("[期刊会议等级与分区助手] DBLP fallback failed", error);
-      return false;
+    return /service temporarily not available|temporarily not available|no server is available/i.test(pageText);
+  }
+
+  function recoverDblpResults(reason = "service-error") {
+    if (dblpRecoveryPromise) return dblpRecoveryPromise;
+    if (!isDblp() || resultContainers().length || !location.pathname.startsWith("/search")) {
+      return Promise.resolve(false);
     }
+    const query = new URLSearchParams(location.search).get("q");
+    if (!query) return Promise.resolve(false);
+
+    dblpRecoveryPromise = (async () => {
+      try {
+        setStatus("recovering-results", reason === "timeout" ? "DBLP result timeout" : "DBLP service error");
+        renderDblpRecoveryStatus("loading");
+        let response;
+        try {
+          response = await fetchDblpPublicationsDirect(query);
+        } catch (directError) {
+          response = await sendRuntimeMessage({
+            type: "rank-assistant-dblp-recover",
+            query,
+            origin: location.origin
+          });
+          if (!response?.ok && directError?.message) {
+            response = { ...response, error: (response?.error || "DBLP mirror recovery failed") + "; main API: " + directError.message };
+          }
+        }
+        if (!response?.ok) throw new Error(response?.error || "DBLP recovery request failed");
+        const hits = Array.isArray(response.hits) ? response.hits : [];
+        if (!hits.length) throw new Error("DBLP API returned no publications");
+        if (resultContainers().length) {
+          document.querySelector(".rank-assistant-fallback-notice")?.remove();
+          return true;
+        }
+        renderApiFallback(hits, response);
+        return true;
+      } catch (error) {
+        setStatus("api-unavailable", String(error?.message || error));
+        renderDblpRecoveryStatus("error", String(error?.message || error));
+        console.warn("[期刊会议等级与分区助手] DBLP fallback failed", error);
+        return false;
+      }
+    })();
+    return dblpRecoveryPromise;
   }
 
   function waitForFirstResult() {
@@ -675,19 +1125,49 @@
       initialize();
       return;
     }
-    setStatus("sleeping", "no publication results");
-    const observer = new MutationObserver(() => {
-      if (!resultContainers().length) return;
-      observer.disconnect();
-      initialize();
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    setTimeout(recoverDblpResults, 1200);
-  }
 
+    const query = isDblp() && location.pathname.startsWith("/search")
+      ? new URLSearchParams(location.search).get("q")
+      : "";
+    if (isDblp() && location.pathname.startsWith("/search") && !query) {
+      setStatus("idle", "DBLP search query is empty");
+      return;
+    }
+
+    setStatus("sleeping", "no publication results");
+    const canRecoverDblp = Boolean(query);
+    let settled = false;
+    let fallbackTimer = null;
+    const observer = new MutationObserver(() => {
+      if (resultContainers().length) {
+        settled = true;
+        observer.disconnect();
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        initialize();
+        return;
+      }
+      if (canRecoverDblp && dblpFailureVisible()) startRecovery("service-error");
+    });
+
+    async function startRecovery(reason) {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      await recoverDblpResults(reason);
+      if (resultContainers().length) await initialize();
+    }
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    if (canRecoverDblp) {
+      fallbackTimer = setTimeout(() => startRecovery("timeout"), DBLP_RESULT_TIMEOUT_MS);
+      if (dblpFailureVisible()) setTimeout(() => startRecovery("service-error"), 0);
+    }
+  }
   try {
     state.settings = await getSettings();
     syncColorTheme();
+    syncColorPalette();
     if (!state.settings.enabled) {
       setStatus("disabled");
       return;

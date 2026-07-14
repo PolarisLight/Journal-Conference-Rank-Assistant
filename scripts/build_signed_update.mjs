@@ -48,6 +48,11 @@ const publicBuildInfo = {
   cas: String(buildInfo.cas || ""),
   jcr: String(buildInfo.jcr || ""),
   ccf: String(buildInfo.ccf || ""),
+  cssci: String(buildInfo.cssci || ""),
+  pkuCore: String(buildInfo.pkuCore || ""),
+  ei: String(buildInfo.ei || ""),
+  xinrui: String(buildInfo.xinrui || ""),
+  warning: String(buildInfo.warning || ""),
   generatedAt: buildInfo.generatedAt || new Date().toISOString().slice(0, 10),
   remoteVersion: releaseVersion,
   updateRepository: REPOSITORY,
@@ -56,7 +61,7 @@ const publicBuildInfo = {
 fs.writeFileSync(path.join(dataDir, "build-info.json"), JSON.stringify(publicBuildInfo, null, 2) + "\n");
 
 const shards = {};
-for (const key of ["0", ..."abcdefghijklmnopqrstuvwxyz"]) {
+for (const key of ["0", ..."abcdefghijklmnopqrstuvwxyz", "other"]) {
   const shardPath = path.join(dataDir, `catalog-shard-${key}.encrypted.json`);
   if (!fs.existsSync(shardPath)) throw new Error("Missing encrypted shard: " + shardPath);
   shards[key] = JSON.parse(fs.readFileSync(shardPath, "utf8"));
@@ -72,7 +77,12 @@ const signedPayload = {
   dataVersions: {
     cas: String(buildInfo.cas || ""),
     jcr: String(buildInfo.jcr || ""),
-    ccf: String(buildInfo.ccf || "")
+    ccf: String(buildInfo.ccf || ""),
+    cssci: String(buildInfo.cssci || ""),
+    pkuCore: String(buildInfo.pkuCore || ""),
+    ei: String(buildInfo.ei || ""),
+    xinrui: String(buildInfo.xinrui || ""),
+    warning: String(buildInfo.warning || ""),
   },
   records: Number(buildInfo.records || 0),
   shards

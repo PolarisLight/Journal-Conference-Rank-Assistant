@@ -1,16 +1,21 @@
 {
   "schema": 1,
   "product": "journal-conference-rank-assistant",
-  "version": "2026.07.12.1",
-  "publishedAt": "2026-07-12T02:54:52.648Z",
+  "version": "2026.07.13.2",
+  "publishedAt": "2026-07-13T08:35:13.734Z",
   "dataVersions": {
     "cas": "2025",
     "jcr": "2025",
-    "ccf": "2026"
+    "ccf": "2026",
+    "cssci": "2025-2026",
+    "pkuCore": "2023",
+    "ei": "2026-07-09",
+    "xinrui": "2026",
+    "warning": "2025"
   },
-  "records": 23413,
-  "bundleUrl": "https://raw.githubusercontent.com/PolarisLight/Journal-Conference-Rank-Assistant/main/updates/catalog-2026.07.12.1.prdb",
-  "sha256": "bfa344ff322ee52eb9785343b6961cffb9405cbf2114e62a502751aed2aa4ef3",
-  "size": 6696121,
+  "records": 35093,
+  "bundleUrl": "https://raw.githubusercontent.com/PolarisLight/Journal-Conference-Rank-Assistant/main/updates/catalog-2026.07.13.2.prdb",
+  "sha256": "e9df4de6e382536fd4a3c11b24b7bc572cdd2a8dc5f1e24d8ea78b03f9e0a84b",
+  "size": 16223695,
   "signatureAlgorithm": "ECDSA_P256_SHA256"
 }

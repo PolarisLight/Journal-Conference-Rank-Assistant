@@ -16,7 +16,7 @@ STOP = {"the", "of", "and", "for", "in", "on", "a", "an"}
 
 def norm(value: str) -> str:
     value = (value or "").casefold().replace("&", " and ")
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", value).split())
+    return " ".join(re.sub(r"[^\w]+", " ", value, flags=re.UNICODE).replace("_", " ").split())
 
 
 def abbreviation_key(value: str) -> str:
@@ -46,6 +46,25 @@ def compact_record(item: dict) -> list:
         item.get("wos", ""),
         item.get("issns", []), ccf.get("field", ""), ccf.get("url", ""),
         item.get("publisher", ""),
+        (item.get("cssci") or {}).get("tier", ""),
+        (item.get("cssci") or {}).get("year", ""),
+        (item.get("cssci") or {}).get("category", ""),
+        1 if item.get("pkuCore") else 0,
+        (item.get("pkuCore") or {}).get("year", ""),
+        (item.get("pkuCore") or {}).get("category", ""),
+        (item.get("pkuCore") or {}).get("cn", ""),
+        (item.get("ei") or {}).get("date", ""),
+        (item.get("ei") or {}).get("sourceType", ""),
+        (item.get("ei") or {}).get("subjects", []),
+        (item.get("ei") or {}).get("status", ""),
+        (item.get("xinrui") or {}).get("zone", ""),
+        1 if (item.get("xinrui") or {}).get("top") else 0,
+        (item.get("xinrui") or {}).get("category", ""),
+        (item.get("xinrui") or {}).get("year", ""),
+        (item.get("warning") or {}).get("year", ""),
+        (item.get("warning") or {}).get("reason", ""),
+        (item.get("xinrui") or {}).get("type", ""),
+        (item.get("xinrui") or {}).get("url", ""),
     ]
 
 
@@ -56,7 +75,7 @@ def main() -> None:
     abbreviations: dict[str, int] = {}
 
     for index, item in enumerate(source_records):
-        for alias in item.get("aliases", []):
+        for alias in [item.get("title", ""), *item.get("aliases", [])]:
             key = norm(alias)
             if not key:
                 continue

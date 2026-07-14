@@ -158,7 +158,7 @@ def main() -> None:
                 "cas": "2025",
                 "jcr": "2025",
                 "ccf": "2026",
-                "generatedAt": "2026-07-12",
+                "generatedAt": "2026-07-13",
                 "upstream": {
                     "repository": "hitfyd/ShowJCR",
                     "baselineSha": "c8da202c1d39373abdb5b5f936de712bb182ce0b",

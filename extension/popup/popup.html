@@ -9,7 +9,7 @@
 <body>
 <main>
   <header>
-    <div><h1>期刊会议等级与分区助手</h1><p>CCF · 中科院 · JCR · SCI · IF</p></div>
+    <div><h1>期刊会议等级与分区助手</h1><p>CCF · 中科院 · 新锐 · JCR · 预警 · 中文核心 · EI</p></div>
     <label class="switch" title="启用扩展"><input id="enabled" type="checkbox"><span></span></label>
   </header>
 
@@ -23,13 +23,17 @@
     <div class="grid">
       <label><input id="showCcf" type="checkbox"> CCF</label>
       <label><input id="showCas" type="checkbox"> 中科院分区</label>
+      <label><input id="showXinrui" type="checkbox"> 新锐分区</label>
+      <label><input id="showWarning" type="checkbox"> 当前预警</label>
       <label><input id="showJcr" type="checkbox"> JCR 分区</label>
       <label><input id="showIf" type="checkbox"> 影响因子</label>
       <label><input id="showWos" type="checkbox"> SCI / WoS</label>
       <label><input id="showTop" type="checkbox"> 中科院 Top</label>
+      <label><input id="showCssci" type="checkbox"> CSSCI</label>
+      <label><input id="showPku" type="checkbox"> 北大核心</label>
+      <label><input id="showEi" type="checkbox"> EI Compendex</label>
     </div>
   </section>
-
   <section class="card theme-card">
     <label for="colorTheme">
       <span><strong>浮层颜色</strong><small>不受论文网站是否支持深色模式影响</small></span>
@@ -39,6 +43,14 @@
         <option value="system">跟随系统</option>
       </select>
     </label>
+    <label for="colorPalette">
+      <span><strong>标签色系</strong><small>一次切换整套标签配色</small><span id="palettePreview" class="palette-preview" data-palette="vivid" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span>
+      <select id="colorPalette">
+        <option value="soft">柔和彩</option>
+        <option value="vivid">鲜明色</option>
+        <option value="colorblind">色盲友好</option>
+      </select>
+    </label>
   </section>
 
   <section class="card metadata">
@@ -46,8 +58,13 @@
     <dl>
       <div><dt>期刊/会议</dt><dd id="recordCount">未加载</dd></div>
       <div><dt>中科院</dt><dd id="casVersion">未加载</dd></div>
+      <div><dt>新锐分区</dt><dd id="xinruiVersion">未加载</dd></div>
+      <div><dt>当前预警</dt><dd id="warningVersion">未加载</dd></div>
       <div><dt>JCR / IF</dt><dd id="jcrVersion">未加载</dd></div>
       <div><dt>CCF</dt><dd id="ccfVersion">未加载</dd></div>
+      <div><dt>CSSCI</dt><dd id="cssciVersion">未加载</dd></div>
+      <div><dt>北大核心</dt><dd id="pkuVersion">未加载</dd></div>
+      <div><dt>EI Compendex</dt><dd id="eiVersion">未加载</dd></div>
     </dl>
   </section>
 

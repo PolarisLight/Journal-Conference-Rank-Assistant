@@ -1,0 +1,2 @@
+19bc98fef32ea51bba8074c3cc16d2cd829f76ee4b616a712edefea531d40590  Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx
+7981823b5afddd143b00bb9db33a8142c8931eafcd93d1597b2ea65fba40fd2b  Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi

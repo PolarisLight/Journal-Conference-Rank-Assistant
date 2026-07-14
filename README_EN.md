@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | [English](README_EN.md)
 
-See journal and conference rankings directly beside academic search results, with no account or sign-in required. The extension supports Google Scholar, DBLP, and commonly used official DBLP mirror domains.
+See journal and conference rankings directly beside academic search results, with no account or sign-in required. The extension supports Google Scholar, DBLP, Semantic Scholar, arXiv, OpenAlex, PubMed, CNKI, and Wanfang Data.
 
 > Firefox listing name: **Journ. & Conf. Rank Assistant**
 
@@ -11,26 +11,40 @@ Project website: https://polarislight.github.io/Journal-Conference-Rank-Assistan
 ## Information shown
 
 - CCF A, B, and C recommendations, with a gray `CCF None` badge for unlisted venues
-- Combined CAS partition and Top-journal status, such as `CAS Q1 Top`
+- Combined CAS partition and Top-journal status, such as `CAS Zone 1 Top`
+- XinRui 2026 broad-field zones and Top status for 22,299 journals and 15 computer-science conferences
+- The latest 2025 CAS international-journal warning list, without historical warning entries
 - JCR Q1-Q4 and Journal Impact Factor reference information
 - Web of Science indexing types, including SCIE, SSCI, AHCI, and ESCI
 - Venue details such as canonical name, publisher, primary research topics, ISSN, data year, and source
 - Opaque hover cards explaining each badge and metric
+- CSSCI 2025-2026 source and extended lists, shown as distinct categories
+- The 2023 Peking University Chinese Core Journals list
+- The official Elsevier Ei Compendex serial list and 2023-2026 proceedings
+- Two-stage result filters: choose an index first, then select its allowed ranks or source types
+- A separate `Hide currently warned journals` switch, disabled by default
+- A draggable in-page filter launcher with an upper-right default and one-time guide
+- Whole-badge palette presets: soft, vivid, and color-blind friendly
 
-SCI and SCIE are Web of Science indexing types, not independent quartile systems. What is often called an “SCI Q1 journal” normally refers to its JCR quartile, so this extension does not display a misleading SCI quartile.
+SCIE, SSCI, CSSCI, the PKU Core list, and Ei Compendex are independent indexing or title-list systems. They do not create another Q1-Q4 scale. Terms such as “SSCI Q1” normally refer to JCR quartiles, so quartiles appear only on the JCR badge.
 
 ## Supported websites
 
 - Google Scholar
-- DBLP (`dblp.org`)
-- Official DBLP mirror domains under `uni-trier.de` and `dagstuhl.de`
+- DBLP (`dblp.org`) and official mirrors under `uni-trier.de` and `dagstuhl.de`
+- Semantic Scholar
+- arXiv search results
+- OpenAlex Works search results
+- PubMed search results
+- CNKI public search results
+- Wanfang Data public search results
 
 ## Installation
 
 Current test packages:
 
-- [Chrome / Chromium CRX v0.10.0](releases/v0.10.0/Journal-Conference-Rank-Assistant-Chrome-v0.10.0.crx)
-- [Firefox XPI v0.10.0](releases/v0.10.0/Journal-Conference-Rank-Assistant-Firefox-v0.10.0.xpi)
+- [Chrome / Chromium CRX v0.11.0](releases/v0.11.0/Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx)
+- [Firefox XPI v0.11.0](releases/v0.11.0/Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi)
 
 An unsigned Firefox test package can only be loaded temporarily from `about:debugging#/runtime/this-firefox`. Permanent installation in standard Firefox requires Mozilla signing.
 
@@ -62,6 +76,7 @@ See the full [Privacy Policy](PRIVACY.md).
 ## Themes and interaction
 
 - Light, dark, and system-following themes
+- Soft, vivid, and color-blind-friendly badge palettes
 - Inline badges attached to publication titles
 - Hover details for rankings, years, metric meanings, and venue metadata
 - Performance-conscious handling of dynamically loaded result pages
@@ -72,22 +87,15 @@ After preparing the private CSV inputs, maintainers can run:
 
 ```powershell
 python scripts/build_private_data.py
+python scripts/merge_social_and_ei_indexes.py
+python scripts/merge_xinrui_and_warning.py
 python scripts/build_runtime_catalog.py
 node scripts/encrypt_runtime_catalog.mjs
-node scripts/build_signed_update.mjs 2026.07.12.1
+node scripts/build_signed_update.mjs 2026.07.13.2
 ```
 
 Plaintext inputs, private signing keys, and build caches are excluded by `.gitignore`. The public repository contains readable extension source code, encrypted data shards, the verification public key, and signed update bundles.
 
-## Firefox extension ID
-
-The fixed Firefox extension ID is:
-
-```text
-journal-conference-rank-assistant@polarislight.github.io
-```
-
-Despite its email-like syntax, this is a Mozilla extension identifier, not an email address. It does not need to receive mail and does not create an inbox under `github.io`.
 
 ## Support
 
@@ -95,4 +103,6 @@ Please report bugs and feature requests through [GitHub Issues](https://github.c
 
 ## Disclaimer
 
-This project is not affiliated with or endorsed by the China Computer Federation, the National Science Library of the Chinese Academy of Sciences, Clarivate, Google, DBLP, Crossref, or any publisher. Rankings, quartiles, indexing information, and impact factors are provided only as search and submission references. Always consult the latest information published by the relevant official organization or database before making formal evaluation or submission decisions.
+The offline build inputs for CCF, JCR, CAS partitions, XinRui 2026, and the latest warning list are derived from the GPL-3.0-licensed `hitfyd/ShowJCR` exports, with upstream version metadata retained. Only the latest 2025 warning list is included.
+
+This project is not affiliated with or endorsed by XinRui Scholar, the China Computer Federation, the National Science Library of the Chinese Academy of Sciences, Clarivate, Google, DBLP, Crossref, or any publisher. Rankings, quartiles, indexing information, and impact factors are provided only as search and submission references. Always consult the latest information published by the relevant official organization or database before making formal evaluation or submission decisions.

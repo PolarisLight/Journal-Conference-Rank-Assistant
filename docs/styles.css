@@ -337,6 +337,16 @@ h3 {
   background: #faf4ff;
 }
 
+.badge-xinrui {
+  color: #007f61;
+  background: #edfff8;
+}
+
+.badge-warning {
+  color: #b42318;
+  background: #fff2f0;
+}
+
 .badge-jcr {
   color: #2864a5;
   background: #f1f7ff;
@@ -345,6 +355,40 @@ h3 {
 .badge-wos {
   color: #5365a6;
   background: #f3f4ff;
+}
+
+.badge-cssci {
+  color: #8a3f72;
+  background: #fff3fa;
+}
+
+.badge-pku {
+  color: #276749;
+  background: #f0fff4;
+}
+
+.badge-ei {
+  color: #8a4a13;
+  background: #fff8e8;
+}
+
+.filter-example {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-self: end;
+  gap: 7px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.warning-filter-demo {
+  grid-column: 1 / -1;
+  color: #b42318;
 }
 
 .venue-chip {
@@ -369,6 +413,12 @@ h3 {
 
 .support-strip span + span {
   border-left: 1px solid var(--line);
+}.support-strip span:nth-child(5) {
+  border-left: 0;
+}
+
+.support-strip span:nth-child(n + 5) {
+  border-top: 1px solid var(--line);
 }
 
 .section {
@@ -544,6 +594,9 @@ footer p {
   .badge-cas { color: #d2a8ff; background: #281d32; }
   .badge-jcr { color: #79c0ff; background: #17263a; }
   .badge-wos { color: #a5b4fc; background: #20223d; }
+  .badge-cssci { color: #f0a6d2; background: #321d2b; }
+  .badge-pku { color: #7ee2a8; background: #173126; }
+  .badge-ei { color: #e3b341; background: #2e2414; }
   .sample-tooltip { box-shadow: 0 14px 36px rgba(0, 0, 0, 0.48); }
 }
 
@@ -561,7 +614,8 @@ footer p {
     grid-template-columns: minmax(0, 1fr) minmax(220px, 0.72fr);
   }
   .row-example,
-  .hover-sample {
+  .hover-sample,
+  .filter-example {
     grid-column: 2;
     justify-self: start;
     justify-content: flex-start;
@@ -583,8 +637,8 @@ footer p {
   .support-strip {
     grid-template-columns: repeat(2, 1fr);
   }
-  .support-strip span:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
-  .support-strip span:nth-child(4) { border-top: 1px solid var(--line); }
+  .support-strip span:nth-child(odd) { border-left: 0; }
+  .support-strip span:nth-child(n + 3) { border-top: 1px solid var(--line); }
   .section { padding: 78px 0; }
   .section-heading { margin-bottom: 36px; }
   .coverage-list article {
@@ -593,7 +647,8 @@ footer p {
     padding: 25px 0;
   }
   .row-example,
-  .hover-sample { grid-column: 1; }
+  .hover-sample,
+  .filter-example { grid-column: 1; justify-self: start; }
   .sample-tooltip { right: auto; left: 0; }
   .privacy-section {
     grid-template-columns: 1fr;

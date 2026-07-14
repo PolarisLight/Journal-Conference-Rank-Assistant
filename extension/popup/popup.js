@@ -2,9 +2,15 @@
 
 const SETTINGS = {
   enabled: true, showCcf: true, showCas: true, showJcr: true,
-  showIf: true, showWos: true, showTop: true, autoCheckUpdates: true,
-  colorTheme: "light"
+  showIf: true, showWos: true, showTop: true, showCssci: true, showPku: true, showEi: true,
+  showXinrui: true, showWarning: true,
+  autoCheckUpdates: true, colorTheme: "light", colorPalette: "vivid"
 };
+
+function syncPalettePreview(value) {
+  const preview = document.getElementById("palettePreview");
+  if (preview) preview.dataset.palette = ["soft", "vivid", "colorblind"].includes(value) ? value : "vivid";
+}
 
 function sendMessage(message) {
   return new Promise((resolve) => {
@@ -19,6 +25,22 @@ function formatDate(value) {
   if (!value) return "尚未检查";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function renderDataVersions(info) {
+  const fields = {
+    cas: "casVersion",
+    jcr: "jcrVersion",
+    ccf: "ccfVersion",
+    cssci: "cssciVersion",
+    pkuCore: "pkuVersion",
+    ei: "eiVersion",
+    xinrui: "xinruiVersion",
+    warning: "warningVersion"
+  };
+  for (const [key, id] of Object.entries(fields)) {
+    if (info?.[key]) document.getElementById(id).textContent = info[key];
+  }
 }
 
 function renderStatus(status) {
@@ -45,9 +67,7 @@ function renderStatus(status) {
   install.disabled = false;
   install.textContent = state === "available" ? "下载并替换数据库" : "重新同步数据库";
   if (status?.dataVersions) {
-    document.getElementById("casVersion").textContent = status.dataVersions.cas || "未加载";
-    document.getElementById("jcrVersion").textContent = status.dataVersions.jcr || "未加载";
-    document.getElementById("ccfVersion").textContent = status.dataVersions.ccf || "未加载";
+    renderDataVersions(status.dataVersions);
   }
   last.textContent = status?.checkedAt ? "上次检查：" + formatDate(status.checkedAt) : "尚未检查";
 }
@@ -59,6 +79,7 @@ chrome.storage.local.get(SETTINGS, (settings) => {
     if (element.type === "checkbox") element.checked = settings[id];
     else element.value = settings[id];
   }
+  syncPalettePreview(settings.colorPalette);
 });
 
 for (const id of Object.keys(SETTINGS)) {
@@ -66,6 +87,7 @@ for (const id of Object.keys(SETTINGS)) {
   if (element) element.addEventListener("change", (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
     chrome.storage.local.set({ [id]: value });
+    if (id === "colorPalette") syncPalettePreview(value);
   });
 }
 
@@ -74,9 +96,7 @@ Promise.all([
   fetch(chrome.runtime.getURL("extension/data/update-feed.json")).then((r) => r.json())
 ]).then(([info, feed]) => {
   document.getElementById("recordCount").textContent = Number(info.records || 0).toLocaleString();
-  document.getElementById("casVersion").textContent = info.cas || "未加载";
-  document.getElementById("jcrVersion").textContent = info.jcr || "未加载";
-  document.getElementById("ccfVersion").textContent = info.ccf || "未加载";
+  renderDataVersions(info);
   const items = Array.isArray(feed) ? feed : feed.news || feed.items || [];
   const list = document.getElementById("newsList");
   list.replaceChildren();

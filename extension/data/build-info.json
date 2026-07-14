@@ -1,10 +1,15 @@
 {
-  "records": 23413,
+  "records": 35093,
   "cas": "2025",
   "jcr": "2025",
   "ccf": "2026",
-  "generatedAt": "2026-07-12",
-  "remoteVersion": "2026.07.12.1",
+  "cssci": "2025-2026",
+  "pkuCore": "2023",
+  "ei": "2026-07-09",
+  "xinrui": "2026",
+  "warning": "2025",
+  "generatedAt": "2026-07-13",
+  "remoteVersion": "2026.07.13.2",
   "updateRepository": "PolarisLight/Journal-Conference-Rank-Assistant",
   "updateChannel": "stable"
 }

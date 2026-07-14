@@ -1,11 +1,11 @@
 const copies = {
   zh: {
     title: "期刊会议等级与分区助手",
-    description: "在 Google Scholar 和 DBLP 的论文标题旁显示 CCF、中科院、JCR、SCI/SCIE 与期刊会议信息。",
+    description: "在 Google Scholar、DBLP、Semantic Scholar、arXiv、OpenAlex、PubMed、知网和万方的论文标题旁显示 CCF、中科院、新锐、JCR、SSCI、CSSCI、北大核心、EI 和当前预警，并按索引与等级筛选论文。",
   },
   en: {
     title: "Journal & Conference Rank Assistant",
-    description: "See CCF, CAS, JCR, SCI/SCIE, and venue information beside paper titles on Google Scholar and DBLP.",
+    description: "See rankings and indexing beside paper titles on Google Scholar, DBLP, Semantic Scholar, arXiv, OpenAlex, PubMed, CNKI, and Wanfang Data.",
   },
 };
 
