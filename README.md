@@ -8,6 +8,7 @@
   <a href=README.md>简体中文</a> ·
   <a href=README_EN.md>English</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>项目主页</a> ·
+  <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support>支持项目</a> ·
   <a href=https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues>反馈问题</a>
 </p>
 
@@ -56,6 +57,10 @@ Google Scholar · DBLP 及其官方镜像 · Semantic Scholar · arXiv · OpenAl
 | Firefox | [下载 XPI](releases/v0.11.0/Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi) | 未签名包只能通过 `about:debugging#/runtime/this-firefox` 临时载入 |
 
 Firefox v0.10.1 正在 Mozilla Add-ons 公开上架审核中。审核通过后，本页会补充正式安装链接。
+
+## 支持项目
+
+插件会继续保持免费、无广告。如果它为你的论文检索节省了时间，可以在[项目主页的支持区](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support)通过微信或支付宝自愿支持项目维护。赞助不会解锁额外功能，也不构成购买或订阅。
 
 ## 隐私与数据更新
 

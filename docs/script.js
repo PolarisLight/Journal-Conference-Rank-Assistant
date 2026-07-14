@@ -28,6 +28,9 @@ function applyLanguage(language) {
   document.querySelectorAll("[data-language]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.language === lang));
   });
+  document.querySelectorAll("[data-language-only]").forEach((element) => {
+    element.hidden = element.dataset.languageOnly !== lang;
+  });
 
   try {
     localStorage.setItem("jcra-language", lang);
