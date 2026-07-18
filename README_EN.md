@@ -7,6 +7,7 @@
 <p align=center>
   <a href=README.md>简体中文</a> ·
   <a href=README_EN.md>English</a> ·
+  <a href=https://addons.mozilla.org/addon/journal-conf-rank-assistant>Install for Firefox</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>Project website</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support>Support the project</a> ·
   <a href=https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues>Report an issue</a>
@@ -54,9 +55,9 @@ Google Scholar · DBLP and its official mirrors · Semantic Scholar · arXiv · 
 | Browser | Package | Notes |
 | --- | --- | --- |
 | Chrome / Chromium | [Download CRX](releases/v0.11.0/Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx) | Local test package. Permanent installation still depends on Chrome Web Store signing |
-| Firefox | [Download XPI](releases/v0.11.0/Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi) | An unsigned package can only be loaded temporarily from `about:debugging#/runtime/this-firefox` |
+| Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Officially signed by Mozilla, with permanent installation and automatic updates |
 
-Firefox v0.10.1 is currently under public Mozilla Add-ons review. The official installation link will be added after approval.
+The Firefox edition is now officially available from Mozilla Add-ons.
 
 ## Support the project
 

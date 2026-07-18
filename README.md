@@ -7,6 +7,7 @@
 <p align=center>
   <a href=README.md>简体中文</a> ·
   <a href=README_EN.md>English</a> ·
+  <a href=https://addons.mozilla.org/addon/journal-conf-rank-assistant>Firefox 官方安装</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>项目主页</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support>支持项目</a> ·
   <a href=https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/issues>反馈问题</a>
@@ -54,9 +55,9 @@ Google Scholar · DBLP 及其官方镜像 · Semantic Scholar · arXiv · OpenAl
 | 浏览器 | 安装包 | 说明 |
 | --- | --- | --- |
 | Chrome / Chromium | [下载 CRX](releases/v0.11.0/Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx) | 本地测试包。永久安装仍以 Chrome Web Store 签发为准 |
-| Firefox | [下载 XPI](releases/v0.11.0/Journal-Conference-Rank-Assistant-Firefox-v0.11.0.xpi) | 未签名包只能通过 `about:debugging#/runtime/this-firefox` 临时载入 |
+| Firefox | [在 Firefox Add-ons 安装](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Mozilla 官方签名版本，可永久安装并接收自动更新 |
 
-Firefox v0.10.1 正在 Mozilla Add-ons 公开上架审核中。审核通过后，本页会补充正式安装链接。
+Firefox 版本现已在 Mozilla Add-ons 正式上架。
 
 ## 支持项目
 
