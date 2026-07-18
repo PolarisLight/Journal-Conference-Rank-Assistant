@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --page: #f6f8fa;
   --surface: #ffffff;
   --surface-soft: #eef3f8;
@@ -673,6 +673,34 @@ footer p {
   margin: 0;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d1117;
+    --surface: #161b22;
+    --surface-soft: #21262d;
+    --text: #f0f6fc;
+    --muted: #9da7b3;
+    --line: #30363d;
+    --line-strong: #484f58;
+    --accent: #58a6ff;
+    --accent-hover: #79b8ff;
+    --accent-text: #0d1117;
+    --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+  }
+
+  .badge-ccf { color: #ff938a; background: #321b1b; }
+  .badge-ccf-b { color: #e3b341; background: #2e2414; }
+  .badge-none { color: #b1bac4; background: #252a31; }
+  .badge-cas { color: #d2a8ff; background: #281d32; }
+  .badge-jcr { color: #79c0ff; background: #17263a; }
+  .badge-wos { color: #a5b4fc; background: #20223d; }
+  .badge-cssci { color: #f0a6d2; background: #321d2b; }
+  .badge-pku { color: #7ee2a8; background: #173126; }
+  .badge-ei { color: #e3b341; background: #2e2414; }
+  .sample-tooltip { box-shadow: 0 14px 36px rgba(0, 0, 0, 0.48); }
+  .support-payment { box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24); }
 }
 
 @media (max-width: 960px) {
