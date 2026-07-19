@@ -7,6 +7,7 @@
 <p align=center>
   <a href=README.md>简体中文</a> ·
   <a href=README_EN.md>English</a> ·
+  <a href=https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm>Install for Chrome</a> ·
   <a href=https://addons.mozilla.org/addon/journal-conf-rank-assistant>Install for Firefox</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>Project website</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support>Support the project</a> ·
@@ -50,14 +51,14 @@ The local catalog contains **35,093** journal and conference records. SCI, SCIE,
 
 Google Scholar · DBLP and its official mirrors · Semantic Scholar · arXiv · OpenAlex · PubMed · CNKI public search · Wanfang Data public search
 
-## Install v0.11.0
+## Install
 
 | Browser | Package | Notes |
 | --- | --- | --- |
-| Chrome / Chromium | [Download CRX](releases/v0.11.0/Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx) | Local test package. Permanent installation still depends on Chrome Web Store signing |
+| Chrome / Chromium | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | Official store edition, with permanent installation and automatic updates |
 | Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Officially signed by Mozilla, with permanent installation and automatic updates |
 
-The Firefox edition is now officially available from Mozilla Add-ons.
+The Chrome and Firefox editions are now officially available from their respective browser extension stores.
 
 ## Support the project
 

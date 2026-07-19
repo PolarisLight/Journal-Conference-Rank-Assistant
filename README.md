@@ -7,6 +7,7 @@
 <p align=center>
   <a href=README.md>简体中文</a> ·
   <a href=README_EN.md>English</a> ·
+  <a href=https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm>Chrome 官方安装</a> ·
   <a href=https://addons.mozilla.org/addon/journal-conf-rank-assistant>Firefox 官方安装</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/>项目主页</a> ·
   <a href=https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support>支持项目</a> ·
@@ -50,14 +51,14 @@
 
 Google Scholar · DBLP 及其官方镜像 · Semantic Scholar · arXiv · OpenAlex · PubMed · 中国知网公开检索 · 万方数据公开检索
 
-## 安装 v0.11.0
+## 安装
 
 | 浏览器 | 安装包 | 说明 |
 | --- | --- | --- |
-| Chrome / Chromium | [下载 CRX](releases/v0.11.0/Journal-Conference-Rank-Assistant-Chrome-v0.11.0.crx) | 本地测试包。永久安装仍以 Chrome Web Store 签发为准 |
+| Chrome / Chromium | [在 Chrome Web Store 安装](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | Google 官方商店版本，可永久安装并接收自动更新 |
 | Firefox | [在 Firefox Add-ons 安装](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Mozilla 官方签名版本，可永久安装并接收自动更新 |
 
-Firefox 版本现已在 Mozilla Add-ons 正式上架。
+Chrome 与 Firefox 版本均已在对应浏览器的官方扩展商店正式上架。
 
 ## 支持项目
 
