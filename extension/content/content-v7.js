@@ -2,8 +2,10 @@
   "use strict";
 
   const N = globalThis.RankAssistantNormalizer;
+  const I18N = globalThis.RankAssistantI18n;
   const DEFAULTS = {
     enabled: true,
+    language: "zh-CN",
     showCcf: true,
     showCas: true,
     showJcr: true,
@@ -31,6 +33,25 @@
   const DBLP_RESULT_TIMEOUT_MS = Math.max(250, Number(globalThis.__PAPER_RANK_DBLP_TIMEOUT_MS) || 5000);
   let dblpRecoveryPromise = null;
 
+  const EN_NOTES = Object.freeze({
+    warning: "This badge uses only the latest warning list bundled with the extension. A warning applies to the journal and does not judge every paper it contains.",
+    ccf: "Based on the local CCF recommended catalog.",
+    "ccf-none": "No rank was matched in the local CCF catalog. The venue may not be listed, or the page may provide incomplete venue information.",
+    cas: "CAS journal partitions use broad-field Zones 1–4, with Zone 1 highest. Top is an additional marker. This system differs from JCR quartiles calculated within Web of Science categories.",
+    top: "The Top marker comes from the CAS journal partition table.",
+    xinrui: "XinRui publishes broad-field Zones 1–4. It is independent from both CAS partitions and JCR quartiles.",
+    jcr: "JCR quartiles are calculated by subject category. One journal may have different quartiles across categories; the extension shows its best quartile.",
+    if: "The impact factor comes from the local JCR dataset.",
+    wos: "SCI, SCIE, SSCI, AHCI, and ESCI are Web of Science indexing types, not quartiles. See the JCR or CAS badge for partition information.",
+    cssci: "CSSCI Source journals are selected by Nanjing University's Chinese Social Sciences Research Evaluation Center. CSSCI is independent from SSCI, JCR, and PKU Core.",
+    pku: "PKU Core is a journal title list, not a Q1–Q4 system, and is independent from CSSCI.",
+    ei: "The EI badge means the journal or proceedings appear in the Compendex Source List. EI has no Q1–Q4 scale. Verify individual records in Engineering Village."
+  });
+
+  function tr(value) {
+    return I18N.exact(value, state.settings.language);
+  }
+
   function resolvedColorTheme() {
     const selected = state.settings.colorTheme || "light";
     return selected === "system" ? (systemDarkMode.matches ? "dark" : "light") : selected;
@@ -56,13 +77,21 @@
       let rerender = false;
       for (const key of Object.keys(DEFAULTS)) {
         if (!changes[key]) continue;
-        state.settings[key] = changes[key].newValue ?? DEFAULTS[key];
+        const nextValue = changes[key].newValue ?? DEFAULTS[key];
+        state.settings[key] = key === "language" ? I18N.normalize(nextValue) : nextValue;
         if (key === "colorTheme") syncColorTheme();
         else if (key === "colorPalette") syncColorPalette();
-        else rerender = true;
+        else {
+          if (key === "language") {
+            tooltipHost?.remove();
+            tooltipHost = tooltipPanel = activeTooltipElement = null;
+          }
+          rerender = true;
+        }
       }
       if (rerender) {
-        setTimeout(resetRenderedResults, 0);
+        const localization = changes.language ? I18N.ready(state.settings.language) : Promise.resolve();
+        localization.then(() => setTimeout(resetRenderedResults, 0));
       }
     });
   }
@@ -78,7 +107,10 @@
   }
 
   function getSettings() {
-    return new Promise((resolve) => chrome.storage.local.get(DEFAULTS, resolve));
+    return new Promise((resolve) => chrome.storage.local.get(DEFAULTS, (stored) => resolve({
+      ...stored,
+      language: I18N.normalize(stored.language)
+    })));
   }
 
   function siteKind() {
@@ -91,8 +123,35 @@
     if (host === "openalex.org" || host === "www.openalex.org") return "openalex";
     if (host === "kns.cnki.net" || host === "kns8.cnki.net") return "cnki";
     if (host === "s.wanfangdata.com.cn") return "wanfang";
+    if (host === "www.aminer.cn" || host === "aminer.cn") return "aminer";
+    if (host === "xueshu.baidu.com") return "baidu-scholar";
+    if (/(^|\.)(nature\.com|springer\.com|sciencedirect\.com|wiley\.com|tandfonline\.com|cambridge\.org|mdpi\.com|frontiersin\.org|biomedcentral\.com|emerald\.com|science\.org|cell\.com|jamanetwork\.com|nejm\.org|thelancet\.com|bmj\.com|karger\.com|degruyter\.com|hindawi\.com|annualreviews\.org|royalsocietypublishing\.org)$/.test(host)
+      || ["ieeexplore.ieee.org", "dl.acm.org", "journals.sagepub.com", "academic.oup.com", "journals.plos.org", "journals.aps.org", "pubs.aip.org", "iopscience.iop.org", "pubs.acs.org", "pubs.rsc.org", "journals.lww.com", "epubs.siam.org", "journals.asm.org", "journals.physiology.org", "www.researchgate.net", "researchgate.net"].includes(host)) {
+      return "publisher";
+    }
     return "unknown";
   }
+
+  const PUBLISHER_RESULT_SELECTOR = [
+    "article[data-test*='article']",
+    "article[data-testid*='article']",
+    ".search-result-item",
+    ".search__item",
+    ".result-item",
+    ".results-item",
+    ".article-listing",
+    ".issue-item",
+    "li.app-card-open",
+    "li[class*='search-result']"
+  ].join(", ");
+  const PUBLISHER_TITLE_LINK_SELECTOR = [
+    "a[href*='/article/']",
+    "a[href*='/articles/']",
+    "a[href*='/doi/']",
+    "a[href*='/document/']",
+    "a[href*='/science/article/']",
+    "a[href*='/content/']"
+  ].join(", ");
 
   function isDblp() {
     return siteKind() === "dblp";
@@ -101,13 +160,16 @@
   function resultSelector() {
     const site = siteKind();
     if (site === "dblp") return "li.entry, article.entry";
-    if (site === "scholar") return ".gs_r.gs_or.gs_scl, .gs_r";
+    if (site === "scholar") return ".gs_r.gs_or.gs_scl, .gs_r, .gsc_a_tr";
     if (site === "arxiv") return "li.arxiv-result";
     if (site === "pubmed") return "article.full-docsum";
     if (site === "semantic-scholar") return '[data-testid="paper-row"], [data-selenium-selector="paper-row"], .cl-paper-row, a[href*="/paper/"]';
     if (site === "openalex") return '[data-testid="work-result"], [data-testid="work-card"], a[href^="/works/"], a[href*="openalex.org/works/"]';
     if (site === "cnki") return '.result-table-list tbody tr, table.result-table-list tbody tr, .result-item, a[href*="/kcms2/article/abstract"], a[href*="/kns8s/detail/detail.aspx"], a[href*="/detail/detail.aspx"]';
     if (site === "wanfang") return '.normal-list-item, .result-item, .paper-item, a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]';
+    if (site === "aminer") return '.paper-item, a.title-link[href^="/pub/"]';
+    if (site === "baidu-scholar") return '.paper-wrap.result, .sc_default_result, a[href*="/usercenter/paper/show"]';
+    if (site === "publisher") return PUBLISHER_RESULT_SELECTOR + ", " + PUBLISHER_TITLE_LINK_SELECTOR;
     return "";
   }
 
@@ -129,6 +191,9 @@
 
   function resultContainers() {
     const site = siteKind();
+    if (site === "scholar" && location.pathname.startsWith("/citations")) {
+      return document.querySelectorAll(".gsc_a_tr");
+    }
     if (site === "dblp" && location.pathname.startsWith("/search")) {
       const section = document.querySelector("#completesearch-publs");
       return section ? section.querySelectorAll("li.entry, article.entry") : document.querySelectorAll("li.entry, article.entry");
@@ -148,6 +213,27 @@
     if (site === "wanfang") {
       const direct = document.querySelectorAll('.normal-list-item, .result-item, .paper-item');
       return direct.length ? direct : containersFromTitleLinks('a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]', 'article, li, .normal-list-item, .result-item, .paper-item, [class*="result"]');
+    }
+    if (site === "aminer") {
+      const direct = document.querySelectorAll('.paper-item');
+      return direct.length ? direct : containersFromTitleLinks('a.title-link[href^="/pub/"]', '.paper-item, article, li, [class*="publication"]');
+    }
+    if (site === "baidu-scholar") {
+      const direct = document.querySelectorAll('.paper-wrap.result, .sc_default_result');
+      return direct.length ? direct : containersFromTitleLinks('a[href*="/usercenter/paper/show"]', '.paper-wrap, .sc_default_result, .result, article, li');
+    }
+    if (site === "publisher") {
+      const direct = document.querySelectorAll(PUBLISHER_RESULT_SELECTOR);
+      if (direct.length) return direct;
+      const linked = containersFromTitleLinks(
+        PUBLISHER_TITLE_LINK_SELECTOR,
+        "article, li, .search-result-item, .result-item, .results-item, [class*='search-result'], [class*='article-list']"
+      );
+      if (linked.length) return linked;
+      const citationTitle = document.querySelector('meta[name="citation_title"]')?.content;
+      const citationJournal = document.querySelector('meta[name="citation_journal_title"], meta[name="prism.publicationName"]')?.content;
+      const article = document.querySelector("main article, article[role='main'], main");
+      return citationTitle && citationJournal && article ? [article] : [];
     }
     const selector = resultSelector();
     return selector ? document.querySelectorAll(selector) : [];
@@ -209,26 +295,39 @@
   function metadataNode(container) {
     const site = siteKind();
     if (site === "dblp") return container.querySelector(".data, cite") || container;
-    if (site === "scholar") return container.querySelector(".gs_a") || container.querySelector(".gs_ri") || container;
+    if (site === "scholar") {
+      if (container.matches?.(".gsc_a_tr")) return container.querySelectorAll(".gs_gray")[1] || container.querySelector(".gs_gray") || container;
+      return container.querySelector(".gs_a") || container.querySelector(".gs_ri") || container;
+    }
     if (site === "pubmed") return container.querySelector(".docsum-journal-citation") || container;
     if (site === "arxiv") return firstMatchingTextNode(container, [".comments", ".journal-ref", "p"], /^(Comments|Journal reference):/i) || container;
-    if (site === "semantic-scholar") return container.querySelector('[data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]') || container;
+    if (site === "semantic-scholar") return container.querySelector('a[href*="/venue/"], [data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]') || container;
     if (site === "openalex") return container.querySelector('[data-testid="source"], [data-testid="venue"], [class*="source"], [class*="venue"]') || container;
     if (site === "cnki") return container.querySelector('td.source a, .source a, [data-field="source"] a') || container.querySelector('td.source, .source, [data-field="source"]') || container;
     if (site === "wanfang") return container.querySelector('.source a, .periodical a, .journal a, [class*="magazine"] a') || container.querySelector('.source, .periodical, .journal, [class*="magazine"]') || container;
+    if (site === "aminer") return container.querySelector('.conf-info-zone .venue-link a, .conf-info-zone .venue-link, .venue-link a') || container;
+    if (site === "baidu-scholar") return container.querySelector('.paper-info, .sc_info') || container;
+    if (site === "publisher") return publisherVenueNode(container) || container;
     return container;
   }
 
   function titleNode(container) {
     const site = siteKind();
     if (site === "dblp") return container.querySelector('span.title[itemprop="name"], .title');
-    if (site === "scholar") return container.querySelector(".gs_rt");
+    if (site === "scholar") return container.querySelector(".gsc_a_at, .gs_rt");
     if (site === "arxiv") return container.querySelector(".title");
     if (site === "pubmed") return container.querySelector(".docsum-title");
     if (site === "semantic-scholar") return container.querySelector('a[href*="/paper/"]');
     if (site === "openalex") return container.querySelector('a[href^="/works/"], a[href*="openalex.org/works/"]');
     if (site === "cnki") return container.querySelector('td.name a, .name a, a.fz14, a[href*="/kcms2/article/abstract"], a[href*="/kns8s/detail/detail.aspx"], a[href*="/detail/detail.aspx"]');
     if (site === "wanfang") return container.querySelector('.title a, a.title, a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]');
+    if (site === "aminer") return container.querySelector('a.title-link[href^="/pub/"], .paper-title');
+    if (site === "baidu-scholar") return container.querySelector('.paper-title a, h3.t a, .t a, a[href*="/usercenter/paper/show"]');
+    if (site === "publisher") {
+      return container.querySelector(
+        "[data-test*='title'] a, [data-testid*='title'] a, .article-title a, .result-title a, .title a, h2 a, h3 a, " + PUBLISHER_TITLE_LINK_SELECTOR
+      ) || (container.matches?.("main, article") ? container.querySelector("h1") : null);
+    }
     return null;
   }
 
@@ -241,11 +340,33 @@
     }
     if (site === "scholar" || site === "pubmed") return metadataNode(container);
     if (site === "arxiv") return firstMatchingTextNode(container, [".journal-ref", ".comments", "p"], /^(Journal reference|Comments):/i);
-    if (site === "semantic-scholar") return container.querySelector('[data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]');
+    if (site === "semantic-scholar") return container.querySelector('a[href*="/venue/"], [data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]');
     if (site === "openalex") return container.querySelector('[data-testid="source"], [data-testid="venue"], [class*="source"], [class*="venue"]');
     if (site === "cnki") return container.querySelector('td.source a, .source a, [data-field="source"] a') || container.querySelector('td.source, .source, [data-field="source"]');
     if (site === "wanfang") return container.querySelector('.source a, .periodical a, .journal a, [class*="magazine"] a') || container.querySelector('.source, .periodical, .journal, [class*="magazine"]');
+    if (site === "aminer") return container.querySelector('.conf-info-zone .venue-link a, .conf-info-zone .venue-link, .venue-link a');
+    if (site === "baidu-scholar") return container.querySelector('.paper-info, .sc_info');
+    if (site === "publisher") return publisherVenueNode(container);
     return null;
+  }
+
+  function publisherVenueNode(container) {
+    return container.querySelector(
+      "[data-test*='journal'], [data-testid*='journal'], [data-test*='publication'], [data-testid*='publication'], " +
+      ".publication-title, .journal-title, .meta__journal, .result-journal, .search-result__publication, " +
+      "a[href*='/journal/'], a[href*='/journals/']"
+    );
+  }
+
+  function publisherDocumentVenue() {
+    const meta = document.querySelector(
+      'meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="dc.source"], meta[property="og:site_name"]'
+    );
+    const value = (meta?.content || "").trim();
+    if (value && !/^(springerlink|sciencedirect|wiley online library|ieee xplore|acm digital library)$/i.test(value)) return value;
+    return (document.querySelector(
+      "header [data-test*='journal-title'], header .journal-title, a[aria-label*='journal'], .publication-header__title"
+    )?.textContent || "").trim();
   }
 
   function dblpKeyFromHref(href) {
@@ -262,6 +383,40 @@
   function dblpVenueKey(container) {
     return dblpKeyFromHref(venueNode(container)?.getAttribute?.("href"));
   }
+  function cleanSemanticScholarVenue(value) {
+    return String(value || "")
+      .replace(/\s*[\u00b7\u2022]\s*(?:19|20)\d{2}.*$/, "")
+      .trim();
+  }
+
+  function semanticScholarVenueCandidates(container) {
+    const candidates = [];
+    const add = (value) => {
+      const cleaned = cleanSemanticScholarVenue(value);
+      if (cleaned && !candidates.includes(cleaned)) candidates.push(cleaned);
+    };
+    const primary = venueNode(container);
+    const nodes = [primary];
+    const linked = primary?.matches?.('a[href*="/venue/"]')
+      ? primary
+      : primary?.querySelector?.('a[href*="/venue/"]');
+    if (linked && linked !== primary) nodes.unshift(linked);
+    for (const node of nodes.filter(Boolean)) {
+      for (const attribute of ["title", "aria-label", "data-venue", "data-full-text"]) {
+        add(node.getAttribute?.(attribute));
+      }
+      const href = node.getAttribute?.("href");
+      if (href) {
+        try {
+          const match = new URL(href, location.href).pathname.match(/\/venue\/([^/]+)/);
+          if (match) add(decodeURIComponent(match[1]).replace(/[-_]+/g, " "));
+        } catch (_) {}
+      }
+      add(node.textContent);
+    }
+    return candidates;
+  }
+
 
   function candidateText(container) {
     const site = siteKind();
@@ -269,8 +424,18 @@
       const venue = venueNode(container);
       if (venue) return venue.textContent || "";
     }
+    if (site === "semantic-scholar") {
+      const candidates = semanticScholarVenueCandidates(container);
+      if (candidates.length) return candidates[0];
+    }
     const raw = (metadataNode(container).textContent || "").trim();
     if (site === "scholar") {
+      if (container.matches?.(".gsc_a_tr")) {
+        return raw
+          .replace(/\s+\d+(?:\s*\([^)]*\))?\s*,.*$/, "")
+          .replace(/,\s*(?:19|20)\d{2}.*$/, "")
+          .trim();
+      }
       const parts = raw.split(/\s+-\s+/);
       if (parts.length >= 2) return parts[1].replace(/,\s*\d{4}.*$/, "").trim();
     }
@@ -282,7 +447,36 @@
       const labeled = raw.match(/(?:来源|刊名)[:：]\s*([^\n;；]+)/);
       return labeled ? labeled[1].trim() : "";
     }
+    if (site === "aminer") {
+      return raw.replace(new RegExp("\\s*[\\uFF08(](?:19|20)\\d{2}[\\uFF09)]\\s*$"), "").trim();
+    }
+    if (site === "baidu-scholar") {
+      const quotedVenue = raw.match(new RegExp("\\u300A([^\\u300B]+)\\u300B"));
+      if (quotedVenue) return quotedVenue[1].trim();
+      const parts = raw.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+      return parts.length >= 2
+        ? parts[1].replace(new RegExp("^(?:\\u6765\\u6E90|\\u520A\\u540D)[:\\uFF1A]\\s*"), "").trim()
+        : "";
+    }
+    if (site === "publisher") {
+      const perResult = (publisherVenueNode(container)?.textContent || "").trim();
+      return perResult || publisherDocumentVenue();
+    }
     return raw;
+  }
+  function candidateTexts(container) {
+    if (siteKind() === "semantic-scholar") return semanticScholarVenueCandidates(container);
+    const candidates = [];
+    const add = (value) => {
+      const cleaned = String(value || "").trim();
+      if (cleaned && !candidates.includes(cleaned)) candidates.push(cleaned);
+    };
+    add(candidateText(container));
+    const venue = venueNode(container);
+    for (const attribute of ["data-full-text", "data-venue", "title"]) {
+      add(venue?.getAttribute?.(attribute));
+    }
+    return candidates;
   }
   function recordInShard(key, normalized, abbreviated) {
     const shard = state.shards.get(key);
@@ -306,56 +500,107 @@
       .reduce((score, index) => score + (record[index] ? 1 : 0), 0);
   }
 
-  function fuzzyAbbreviationRecord(normalized) {
+  function recordIdentity(record) {
+    if (!record) return "";
+    return [record[0] || "", record[15] || "", ...(record[13] || [])].join("|");
+  }
+
+  function uniqueRecord(records) {
+    const byIdentity = new Map();
+    for (const record of records.filter(Boolean)) byIdentity.set(recordIdentity(record), record);
+    return byIdentity.size === 1 ? [...byIdentity.values()][0] : null;
+  }
+
+  function prefixRecord(text, { includeExact = false } = {}) {
+    const normalized = N.normalize(text);
+    const candidateTokens = normalized.split(" ").filter(Boolean);
+    if (candidateTokens.length < 4 || normalized.length < 20) return null;
+    const shard = state.shards.get(shardKey(normalized));
+    if (!shard) return null;
+    const matches = new Set();
+    for (const [stored, index] of Object.entries(shard.a)) {
+      if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) matches.add(index);
+      if (matches.size > 1) return false;
+    }
+    for (const stored of shard.x || []) {
+      if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) return false;
+    }
+
+    return matches.size === 1 ? shard.r[[...matches][0]] || null : null;
+  }
+
+  function fuzzyAbbreviationRecord(text) {
+    const normalized = N.normalize(text);
     const candidate = abbreviationKey(normalized);
     const candidateTokens = candidate.split(" ").filter(Boolean);
     if (candidateTokens.length < 2) return null;
     const shard = state.shards.get(shardKey(normalized));
     if (!shard) return null;
-    let best = null;
-    let bestScore = -1;
+    for (const stored of shard.y || []) {
+      const storedTokens = stored.split(" ");
+      if (storedTokens.length !== candidateTokens.length) continue;
+      if (candidateTokens.every((token, position) =>
+        storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
+      )) return null;
+    }
+    const matches = new Set();
     for (const [stored, index] of Object.entries(shard.b)) {
       const storedTokens = stored.split(" ");
       if (storedTokens.length !== candidateTokens.length) continue;
       if (!candidateTokens.every((token, position) =>
         storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
       )) continue;
-      const record = shard.r[index] || null;
-      const prefixScore = candidateTokens.reduce(
-        (score, token, position) => score + Math.min(token.length, storedTokens[position].length),
-        0
-      );
-      const score = recordCompleteness(record) * 100 + prefixScore;
-      if (score > bestScore) {
-        best = record;
-        bestScore = score;
-      }
+      matches.add(index);
+      if (matches.size > 1) return null;
     }
-    return best;
+    return matches.size === 1 ? shard.r[[...matches][0]] || null : null;
   }
-
-  function matchRecord(text) {
+  function longEmbeddedRecord(text) {
     const normalized = N.normalize(text);
-    if (!normalized) return null;
-    const exact = exactRecord(normalized);
-    if (exact) return exact;
-    const abbreviated = fuzzyAbbreviationRecord(normalized);
-    if (abbreviated) return abbreviated;
-    const words = normalized.split(" ");
-    for (let size = Math.min(state.maxAliasWords, words.length); size >= 1; size -= 1) {
+    const words = normalized.split(" ").filter(Boolean);
+    for (let size = Math.min(state.maxAliasWords, words.length); size >= 4; size -= 1) {
+      const matches = [];
       for (let start = 0; start <= words.length - size; start += 1) {
         const phrase = words.slice(start, start + size).join(" ");
-        const record = recordInShard(
-          shardKey(phrase),
-          phrase,
-          size >= 2 ? abbreviationKey(phrase) : ""
-        );
-        if (record) return record;
+        const shard = state.shards.get(shardKey(phrase));
+        if (!shard || !Object.prototype.hasOwnProperty.call(shard.a, phrase)) continue;
+        matches.push(shard.r[shard.a[phrase]] || null);
       }
+      if (matches.length) return uniqueRecord(matches);
     }
     return null;
   }
 
+  function acronymRecord(text) {
+    const raw = String(text || "").trim();
+    const simple = raw.match(/^([A-Z][A-Z0-9-]{2,11})(?:\s+(?:19|20)\d{2})?$/);
+    const contextual = raw.match(/(?:accepted|published|appearing|presented|forthcoming)\s+(?:at|in|to)?\s*([A-Z][A-Z0-9-]{2,11})\b/i);
+    const acronym = simple?.[1] || contextual?.[1] || "";
+    return acronym ? exactRecord(acronym) : null;
+  }
+
+  function matchRecord(text, { allowEmbedded = false, allowCompletion = true } = {}) {
+    const normalized = N.normalize(text);
+    if (!normalized) return null;
+    const shard = state.shards.get(shardKey(normalized));
+    if (shard?.x?.includes(normalized)) return null;
+    const truncated = /(?:\.\.\.|\u2026)+\s*$/.test(String(text || ""));
+    if (!truncated) {
+      const exact = exactRecord(normalized);
+      if (exact) return exact;
+    }
+    if (allowCompletion) {
+      const prefixed = prefixRecord(normalized, { includeExact: truncated });
+      if (prefixed === false) return null;
+      if (prefixed) return prefixed;
+      const abbreviated = fuzzyAbbreviationRecord(normalized);
+      if (abbreviated) return abbreviated;
+    }
+    return allowEmbedded ? longEmbeddedRecord(normalized) || acronymRecord(text) : null;
+  }
+  function semanticScholarRecord(texts) {
+    return uniqueRecord(texts.map((text) => matchRecord(text)));
+  }
   function primaryShardForText(text) {
     const normalized = N.normalize(text);
     return normalized ? shardKey(normalized) : "";
@@ -474,13 +719,13 @@
         if (!response?.ok || !response.metadata) return;
         const metadata = response.metadata;
         const publisher = metadata.publisher || metadata.publisherFull;
-        const publisherRow = details.rows.find((row) => row.label === "发行商");
+        const publisherRow = details.rows.find((row) => row.sourceLabel === "发行商");
         if (publisherRow && publisher) publisherRow.value = publisher;
-        const directionRow = details.rows.find((row) => row.label === "主要方向");
+        const directionRow = details.rows.find((row) => row.sourceLabel === "主要方向");
         const directions = researchDirections(details.record, metadata.subjects);
         if (directionRow && directions) directionRow.value = directions;
-        const sourceRow = details.rows.find((row) => row.label === "信息来源");
-        if (sourceRow) sourceRow.value = response.cached ? "本地目录 + Crossref 缓存" : "本地目录 + Crossref";
+        const sourceRow = details.rows.find((row) => row.sourceLabel === "信息来源");
+        if (sourceRow) sourceRow.value = tr(response.cached ? "本地目录 + Crossref 缓存" : "本地目录 + Crossref");
         if (activeTooltipElement !== element) return;
         panel.textContent = plainTooltipText(details);
         panel.style.setProperty("visibility", "hidden", "important");
@@ -500,7 +745,7 @@
   function plainTooltipText(details) {
     const lines = [details.title];
     for (const row of details.rows || []) {
-      if (row?.value || row?.value === 0) lines.push(row.label + "：" + row.value);
+      if (row?.value || row?.value === 0) lines.push(row.label + (I18N.normalize(state.settings.language) === "en" ? ": " : "：") + row.value);
     }
     if (details.note) lines.push(details.note);
     return lines.join("\n");
@@ -510,11 +755,27 @@
     const element = document.createElement("span");
     element.className = className;
     if (kind) element.dataset.kind = kind;
-    element.textContent = label;
-    const details = { title, rows, note, ...options };
+    const translatedLabel = tr(label);
+    element.textContent = translatedLabel;
+    const translatedRows = (rows || []).map((row) => ({
+      ...row,
+      sourceLabel: row.sourceLabel || row.label,
+      label: tr(row.label),
+      value: tr(row.value)
+    }));
+    const translatedNote = I18N.normalize(state.settings.language) === "en"
+      ? ((kind === "cssci" && String(label).includes("扩展")
+        ? "The CSSCI Extended list is separate from the CSSCI Source list. The extension displays them separately."
+        : EN_NOTES[kind]) || (className === "rank-assistant-venue-detail"
+        ? (recordType(options.record) === "期刊"
+          ? "Publisher data comes from the local catalog first, then Crossref by ISSN when missing. Topics combine local classifications and Crossref subjects."
+          : "Conference topics come from CCF field classifications.")
+        : tr(note)))
+      : note;
+    const details = { title: tr(title), rows: translatedRows, note: translatedNote, ...options };
     const tooltipText = plainTooltipText(details);
     element.dataset.tooltip = tooltipText;
-    element.setAttribute("aria-label", label + "。" + tooltipText.replace(/\n/g, "。"));
+    element.setAttribute("aria-label", translatedLabel + (I18N.normalize(state.settings.language) === "en" ? ". " : "。") + tooltipText.replace(/\n/g, I18N.normalize(state.settings.language) === "en" ? ". " : "。"));
     element.addEventListener("mouseenter", () => showTooltip(element, details));
     element.addEventListener("mouseleave", () => hideTooltip());
     return element;
@@ -776,13 +1037,19 @@
       metadataNode(container).prepend(row);
       return;
     }
-    if (siteKind() === "scholar") title.appendChild(row);
+    if (siteKind() === "scholar" && !title.matches?.(".gsc_a_at")) title.appendChild(row);
     else title.insertAdjacentElement("afterend", row);
   }
 
   function attachVenueDetails(container, details) {
     const venue = venueNode(container);
-    if (!venue) return;
+    if (!venue) {
+      if (siteKind() === "publisher") {
+        const row = container.querySelector(".rank-assistant-row");
+        (row || titleNode(container))?.insertAdjacentElement("afterend", details);
+      }
+      return;
+    }
     if (siteKind() === "scholar") venue.appendChild(details);
     else venue.insertAdjacentElement("afterend", details);
   }
@@ -874,9 +1141,13 @@
       (container) => container.dataset.paperRankProcessed !== "1" && container.dataset.paperRankLoading !== "1"
     );
     if (!containers.length) return;
+    const site = siteKind();
+    const isSemanticScholar = site === "semantic-scholar";
+    const allowEmbedded = site === "arxiv";
     const items = containers.map((container) => {
       container.dataset.paperRankLoading = "1";
-      return { container, text: candidateText(container), record: null };
+      const texts = candidateTexts(container);
+      return { container, texts, text: texts[0] || "", record: null };
     });
 
     try {
@@ -892,16 +1163,20 @@
           return;
         }
       }
-      await ensureShards(items.map((item) => primaryShardForText(item.text)));
+      await ensureShards(items.flatMap((item) => item.texts.map(primaryShardForText)));
       const unresolved = [];
       for (const item of items) {
-        item.record = exactRecord(item.text);
+        item.record = isSemanticScholar
+          ? semanticScholarRecord(item.texts)
+          : uniqueRecord(item.texts.map((text) => matchRecord(text, { allowCompletion: !allowEmbedded })));
         if (!item.record) unresolved.push(item);
       }
-      if (unresolved.length && !isDblp()) {
-        await ensureShards(unresolved.flatMap((item) => secondaryShardsForText(item.text)));
+      if (unresolved.length && allowEmbedded) {
+        await ensureShards(unresolved.flatMap((item) => item.texts.flatMap(secondaryShardsForText)));
+        for (const item of unresolved) {
+          item.record = uniqueRecord(item.texts.map((text) => matchRecord(text, { allowEmbedded: true, allowCompletion: false })));
+        }
       }
-      for (const item of unresolved) item.record = matchRecord(item.text);
       unifyDblpVenueLineages(items);
       state.lastScanDetail = state.shards.size + " content data shards";
       for (const item of items) renderContainer(item.container, item.record);
@@ -910,7 +1185,6 @@
       throw error;
     }
   }
-
   function mutationContainsResults(records) {
     const selector = resultSelector();
     if (!selector) return false;
@@ -941,6 +1215,7 @@
     initialization = (async () => {
       try {
         setStatus("loading-data");
+        document.documentElement.dataset.paperRankHasResults = "1";
         await idle();
         await scan();
         watchDynamicResults();
@@ -987,15 +1262,19 @@
     notice.className = "rank-assistant-fallback-notice rank-assistant-fallback-" + kind;
     notice.setAttribute("role", "status");
     if (kind === "loading") {
-      notice.textContent = "DBLP 页面列表服务暂时不可用，期刊会议等级与分区助手正在通过官方 JSON API 恢复论文列表…";
+      notice.textContent = I18N.normalize(state.settings.language) === "en"
+        ? "DBLP's page-list service is temporarily unavailable. The extension is restoring the publication list through DBLP's official JSON API…"
+        : "DBLP 页面列表服务暂时不可用，期刊会议等级与分区助手正在通过官方 JSON API 恢复论文列表…";
     } else {
       body.querySelectorAll("ul.error, ul.waiting").forEach((node) => node.remove());
       const message = document.createElement("span");
-      message.textContent = "期刊会议等级与分区助手未能从 DBLP 官方 API 恢复论文列表：" + detail + "。";
+      message.textContent = I18N.normalize(state.settings.language) === "en"
+        ? "The extension could not restore the publication list from DBLP's official API: " + detail + "."
+        : "期刊会议等级与分区助手未能从 DBLP 官方 API 恢复论文列表：" + detail + "。";
       const retry = document.createElement("button");
       retry.type = "button";
       retry.className = "rank-assistant-fallback-retry";
-      retry.textContent = "重试";
+      retry.textContent = tr("重试");
       retry.addEventListener("click", async () => {
         dblpRecoveryPromise = null;
         const recovered = await recoverDblpResults("manual-retry");
@@ -1039,9 +1318,11 @@
 
     const notice = document.createElement("p");
     notice.className = "rank-assistant-fallback-notice";
-    const cacheText = recovery.cached ? "（来自 10 分钟缓存）" : "";
-    notice.textContent = "DBLP 页面列表服务暂时不可用，以下结果由 " +
-      dblpSourceName(recovery.sourceOrigin) + " 官方 JSON API 恢复" + cacheText + "。";
+    const english = I18N.normalize(state.settings.language) === "en";
+    const cacheText = recovery.cached ? (english ? " (from a 10-minute cache)" : "（来自 10 分钟缓存）") : "";
+    notice.textContent = english
+      ? "DBLP's page-list service is temporarily unavailable. The results below were restored through the official JSON API at " + dblpSourceName(recovery.sourceOrigin) + cacheText + "."
+      : "DBLP 页面列表服务暂时不可用，以下结果由 " + dblpSourceName(recovery.sourceOrigin) + " 官方 JSON API 恢复" + cacheText + "。";
     const list = document.createElement("ul");
     list.className = "publ-list rank-assistant-fallback-list";
 
@@ -1126,6 +1407,28 @@
       return;
     }
 
+    const site = siteKind();
+    if (site === "publisher") {
+      const route = (location.pathname + location.search).toLowerCase();
+      const hasArticleMetadata = Boolean(document.querySelector('meta[name="citation_title"], meta[name="citation_journal_title"], meta[name="prism.publicationName"]'));
+      const mayLoadPapers = hasArticleMetadata || /search|article|doi|document|journal|issue|content|publication/.test(route);
+      if (!mayLoadPapers) {
+        setStatus("idle", "publisher page has no publication results");
+        return;
+      }
+    }
+
+    if (site === "aminer" || site === "baidu-scholar") {
+      const route = (location.pathname + location.search).toLowerCase();
+      const mayLoadPapers = site === "aminer"
+        ? /\/search\/pub|\/pub\//.test(route)
+        : /\/browse\/search|\/paper\/show/.test(route);
+      if (!mayLoadPapers) {
+        setStatus("idle", site + " page has no publication results");
+        return;
+      }
+    }
+
     const query = isDblp() && location.pathname.startsWith("/search")
       ? new URLSearchParams(location.search).get("q")
       : "";
@@ -1166,6 +1469,7 @@
   }
   try {
     state.settings = await getSettings();
+    await I18N.ready(state.settings.language);
     syncColorTheme();
     syncColorPalette();
     if (!state.settings.enabled) {

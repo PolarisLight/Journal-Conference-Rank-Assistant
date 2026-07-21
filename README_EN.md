@@ -49,7 +49,9 @@ The local catalog contains **35,093** journal and conference records. SCI, SCIE,
 
 ## Supported websites
 
-Google Scholar · DBLP and its official mirrors · Semantic Scholar · arXiv · OpenAlex · PubMed · CNKI public search · Wanfang Data public search
+New public search coverage: AMiner and Baidu Scholar. ResearchGate is annotated only when a public publication page exposes standard journal metadata.
+
+Google Scholar search and author profiles · DBLP and its official mirrors · Semantic Scholar · arXiv · OpenAlex · PubMed · CNKI public search · Wanfang Data public search · major journal and publisher platforms including Nature/Springer, ScienceDirect, IEEE Xplore, ACM DL, and Wiley
 
 ## Install
 

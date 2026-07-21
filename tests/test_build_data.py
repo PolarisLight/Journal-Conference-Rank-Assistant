@@ -26,6 +26,52 @@ class DatasetTests(unittest.TestCase):
         jacm = next(item for item in self.records if "JACM" in item.get("aliases", []))
         self.assertEqual(jacm["ccf"]["rank"], "A")
 
+    def test_ccf_conference_display_aliases_are_generic(self):
+        cvpr = next(item for item in self.records if "CVPR" in item.get("aliases", []))
+        normalized_aliases = {" ".join(alias.casefold().replace("/", " ").split()) for alias in cvpr.get("aliases", [])}
+        self.assertIn("computer vision and pattern recognition", normalized_aliases)
+        self.assertEqual(cvpr["ccf"]["type"], "\u63a8\u8350\u56fd\u9645\u5b66\u672f\u4f1a\u8bae")
+
+        ijcai = next(item for item in self.records if "IJCAI" in item.get("aliases", []))
+        self.assertEqual(ijcai["ccf"]["rank"], "B")
+        self.assertIn("International Joint Conference on Artificial Intelligence", ijcai.get("aliases", []))
+
+        pattern_recognition = next(item for item in self.records if item["title"].casefold() == "pattern recognition")
+        self.assertEqual(pattern_recognition["ccf"]["type"], "\u63a8\u8350\u56fd\u9645\u5b66\u672f\u520a\u7269")
+
+
+
+    def test_runtime_catalog_refuses_ambiguous_keys(self):
+        shard_a = json.loads((ROOT / "extension/data/catalog-shard-a.private.json").read_text(encoding="utf-8"))
+        self.assertIn("aamas", shard_a["x"])
+        self.assertIn("acm tran quan comp", shard_a["y"])
+        aliases = json.loads((ROOT / "extension/data/catalog-aliases.private.json").read_text(encoding="utf-8"))
+        abbreviations = json.loads((ROOT / "extension/data/catalog-abbreviations.private.json").read_text(encoding="utf-8"))
+        self.assertNotIn("aamas", aliases)
+        self.assertNotIn("cc", aliases)
+        self.assertNotIn("acm tran quan comp", abbreviations)
+    def test_every_runtime_record_placement_is_reachable(self):
+        placements = 0
+        aliases = 0
+        abbreviations = 0
+        unreachable = []
+        for shard_path in sorted((ROOT / "extension/data").glob("catalog-shard-*.private.json")):
+            shard = json.loads(shard_path.read_text(encoding="utf-8"))
+            record_count = len(shard["r"])
+            placements += record_count
+            aliases += len(shard["a"])
+            abbreviations += len(shard["b"])
+            self.assertFalse(set(shard["a"]).intersection(shard.get("x", [])), shard_path.name)
+            self.assertFalse(set(shard["b"]).intersection(shard.get("y", [])), shard_path.name)
+            reachable = set(shard["a"].values()) | set(shard["b"].values())
+            self.assertTrue(all(isinstance(index, int) and 0 <= index < record_count for index in reachable))
+            for index, record in enumerate(shard["r"]):
+                if index not in reachable:
+                    unreachable.append((shard_path.name, index, record[0]))
+        self.assertEqual(unreachable, [])
+        self.assertGreater(placements, 35_000)
+        self.assertGreater(aliases, 35_000)
+        self.assertGreater(abbreviations, 30_000)
 
     def test_chinese_index_records_are_merged(self):
         metal = next(item for item in self.records if "金属学报" in [item["title"], *item.get("aliases", [])])

@@ -42,6 +42,30 @@ def ccf_rank(value: str) -> str:
     return match.group(1).upper() if match else ""
 
 
+def ccf_venue_aliases(title: str, venue_type: str) -> list[str]:
+    """Generate conservative display-name aliases for CCF venues."""
+    if "\u4f1a\u8bae" not in (venue_type or ""):
+        return []
+    value = (title or "").strip()
+    stripped = re.sub(
+        r"^(?:(?:IEEE|ACM|USENIX|SIAM|AAAI|CVF)(?:\s*/\s*|\s+))+",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    ).strip()
+    aliases = []
+    for candidate in {value, stripped}:
+        without_kind = re.sub(
+            r"\s+(?:conference|symposium|workshop|meeting)\s*$",
+            "",
+            candidate,
+            flags=re.IGNORECASE,
+        ).strip()
+        if len(norm(without_kind).split()) >= 4 and norm(without_kind) != norm(value):
+            aliases.append(without_kind)
+    return aliases
+
+
 def record_score(item: dict) -> int:
     return sum([
         10 if item.get("ccf") else 0,
@@ -119,6 +143,9 @@ def main() -> None:
         abbreviation = row[0].strip()
         if abbreviation and abbreviation not in item["aliases"]:
             item["aliases"].append(abbreviation)
+        for alias in ccf_venue_aliases(row[1], row[6]):
+            if alias not in item["aliases"]:
+                item["aliases"].append(alias)
         if row[3].strip():
             item["publisher"] = row[3].strip()
         item["ccf"] = {

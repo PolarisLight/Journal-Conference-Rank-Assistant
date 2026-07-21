@@ -49,7 +49,9 @@
 
 ## 支持网页
 
-Google Scholar · DBLP 及其官方镜像 · Semantic Scholar · arXiv · OpenAlex · PubMed · 中国知网公开检索 · 万方数据公开检索
+新增公开检索页：AMiner 与 Baidu Scholar（百度学术）。ResearchGate 仅在公开论文页提供标准期刊元数据时显示标签。
+
+Google Scholar（搜索结果与个人主页） · DBLP 及其官方镜像 · Semantic Scholar · arXiv · OpenAlex · PubMed · 中国知网公开检索 · 万方数据公开检索 · 常见期刊与出版社平台（Nature/Springer、ScienceDirect、IEEE Xplore、ACM DL、Wiley 等）
 
 ## 安装
 

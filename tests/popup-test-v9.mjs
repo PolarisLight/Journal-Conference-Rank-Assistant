@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 const { JSDOM } = await import("file:///C:/Users/polaris/Documents/Codex/2026-07-12/ch/work/testdeps/node_modules/jsdom/lib/api.js");
 
-const html = fs.readFileSync("extension/popup/popup.html", "utf8").replace('<script src="popup.js"></script>', "");
+const html = fs.readFileSync("extension/popup/popup.html", "utf8")
+  .replace('<script src="../lib/i18n.js"></script>', "")
+  .replace('<script src="popup.js"></script>', "");
+const i18n = fs.readFileSync("extension/lib/i18n.js", "utf8");
 const script = fs.readFileSync("extension/popup/popup.js", "utf8");
 const updateFeed = JSON.parse(fs.readFileSync("extension/data/update-feed.json", "utf8"));
 assert.equal(updateFeed.news[0].title, "新增新锐与当前预警");
@@ -27,9 +30,16 @@ dom.window.chrome = {
     }
   }
 };
-dom.window.fetch = async (value) => String(value).includes("build-info")
-  ? { json: async () => ({ records: 35093, cas: "2025", jcr: "2025", ccf: "2026", cssci: "2025-2026", pkuCore: "2023", ei: "2026-07-09", xinrui: "2026", warning: "2025" }) }
-  : { json: async () => ({ news: [] }) };
+dom.window.fetch = async (value) => {
+  const address = String(value);
+  if (address.includes("_locales/")) {
+    return { ok: true, json: async () => JSON.parse(fs.readFileSync(address, "utf8")) };
+  }
+  return address.includes("build-info")
+    ? { ok: true, json: async () => ({ records: 35093, cas: "2025", jcr: "2025", ccf: "2026", cssci: "2025-2026", pkuCore: "2023", ei: "2026-07-09", xinrui: "2026", warning: "2025" }) }
+    : { ok: true, json: async () => ({ news: [] }) };
+};
+dom.window.eval(i18n);
 dom.window.eval(script);
 await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -59,3 +69,13 @@ assert.equal(dom.window.document.getElementById("showWarning").checked, true);
 assert.match(dom.window.document.getElementById("installUpdates").textContent, /已替换/);
 console.log(JSON.stringify({ theme: saved.colorTheme, palette: saved.colorPalette, installMessage: true }));
 assert.equal(dom.window.document.querySelector(".filter-card"), null);
+
+const language = dom.window.document.getElementById("language");
+assert.equal(language.value, "zh-CN");
+language.value = "en";
+language.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(saved.language, "en");
+assert.equal(dom.window.document.querySelector("h1").textContent, "Journal & Conference Rank Assistant");
+assert.equal(dom.window.document.getElementById("statusTitle").textContent, "Current data matches the latest baseline");
+assert.equal(dom.window.RankAssistantI18n.normalize("fr"), "zh-CN", "Unsupported languages must fall back to Chinese");

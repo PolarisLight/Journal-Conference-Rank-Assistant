@@ -1,0 +1,339 @@
+{
+  "extensionName": {
+    "message": "Journal & Conference Rank Assistant",
+    "description": "extensionName"
+  },
+  "extensionDescription": {
+    "message": "Shows journal and conference rankings, partitions, indexing, and impact information beside academic results, with in-page filtering.",
+    "description": "extensionDescription"
+  },
+  "actionTitle": {
+    "message": "Journal & Conference Rank Assistant",
+    "description": "actionTitle"
+  },
+  "ui_journal_conference_rank_assistant": {
+    "message": "Journal & Conference Rank Assistant"
+  },
+  "ui_ccf_cas_xinrui_jcr_warning_chinese_core_ei": {
+    "message": "CCF · CAS · XinRui · JCR · Warning · Chinese Core · EI"
+  },
+  "ui_enable_extension": {
+    "message": "Enable extension"
+  },
+  "ui_local_data_is_ready": {
+    "message": "Local data is ready"
+  },
+  "ui_official_updates_have_not_been_checked": {
+    "message": "Official updates have not been checked"
+  },
+  "ui_visible_badges": {
+    "message": "Visible badges"
+  },
+  "ui_cas_partitions": {
+    "message": "CAS partitions"
+  },
+  "ui_xinrui_partitions": {
+    "message": "XinRui partitions"
+  },
+  "ui_current_warning": {
+    "message": "Current warning"
+  },
+  "ui_jcr_quartile": {
+    "message": "JCR quartile"
+  },
+  "ui_impact_factor": {
+    "message": "Impact factor"
+  },
+  "ui_cas_top": {
+    "message": "CAS Top"
+  },
+  "ui_pku_core": {
+    "message": "PKU Core"
+  },
+  "ui_interface_language": {
+    "message": "Interface language"
+  },
+  "ui_choose_chinese_or_english_explicitly": {
+    "message": "Choose Chinese or English explicitly"
+  },
+  "ui_panel_theme": {
+    "message": "Panel theme"
+  },
+  "ui_independent_of_the_paper_website_theme": {
+    "message": "Independent of the paper website theme"
+  },
+  "ui_light": {
+    "message": "Light"
+  },
+  "ui_dark": {
+    "message": "Dark"
+  },
+  "ui_follow_system": {
+    "message": "Follow system"
+  },
+  "ui_badge_palette": {
+    "message": "Badge palette"
+  },
+  "ui_switch_the_complete_badge_palette": {
+    "message": "Switch the complete badge palette"
+  },
+  "ui_soft": {
+    "message": "Soft"
+  },
+  "ui_vivid": {
+    "message": "Vivid"
+  },
+  "ui_color_blind_friendly": {
+    "message": "Color-blind friendly"
+  },
+  "ui_local_data": {
+    "message": "Local data"
+  },
+  "ui_journals_conferences": {
+    "message": "Journals / conferences"
+  },
+  "ui_cas": {
+    "message": "CAS"
+  },
+  "ui_not_loaded": {
+    "message": "Not loaded"
+  },
+  "ui_data_updates": {
+    "message": "Data updates"
+  },
+  "ui_check_weekly": {
+    "message": "Check weekly"
+  },
+  "ui_check_now": {
+    "message": "Check now"
+  },
+  "ui_sync_database": {
+    "message": "Sync database"
+  },
+  "ui_clear_journal_cache": {
+    "message": "Clear journal cache"
+  },
+  "ui_not_checked": {
+    "message": "Not checked"
+  },
+  "ui_data_news": {
+    "message": "Data news"
+  },
+  "ui_loading": {
+    "message": "Loading…"
+  },
+  "ui_hover_over_badges_and_venue_details_for_explanations_ranking_matches_run_locally_missing_publishers_": {
+    "message": "Hover over badges and venue details for explanations. Ranking matches run locally; missing publishers are queried from Crossref by ISSN."
+  },
+  "ui_new_official_data_is_available": {
+    "message": "New official data is available"
+  },
+  "ui_a_newer_data_package_is_recommended": {
+    "message": "A newer data package is recommended"
+  },
+  "ui_current_data_matches_the_latest_baseline": {
+    "message": "Current data matches the latest baseline"
+  },
+  "ui_the_official_database_is_current": {
+    "message": "The official database is current"
+  },
+  "ui_unable_to_check_for_updates": {
+    "message": "Unable to check for updates"
+  },
+  "ui_the_local_database_remains_available": {
+    "message": "The local database remains available"
+  },
+  "ui_download_and_replace_database": {
+    "message": "Download and replace database"
+  },
+  "ui_resync_database": {
+    "message": "Resync database"
+  },
+  "ui_no_news_available": {
+    "message": "No news available"
+  },
+  "ui_failed_to_load_news": {
+    "message": "Failed to load news"
+  },
+  "ui_checking": {
+    "message": "Checking…"
+  },
+  "ui_downloading_and_rebuilding": {
+    "message": "Downloading and rebuilding…"
+  },
+  "ui_replaced_refresh_pages_to_apply": {
+    "message": "Replaced. Refresh pages to apply"
+  },
+  "ui_cleared": {
+    "message": "Cleared"
+  },
+  "ui_filter_papers": {
+    "message": "Filter papers"
+  },
+  "ui_paper_filters": {
+    "message": "Paper filters"
+  },
+  "ui_click_to_open_drag_to_move": {
+    "message": "Click to open, drag to move"
+  },
+  "ui_select_indexes_then_choose_the_levels_or_types_to_keep": {
+    "message": "Select indexes, then choose the levels or types to keep."
+  },
+  "ui_close_filters": {
+    "message": "Close filters"
+  },
+  "ui_indexes": {
+    "message": "Indexes"
+  },
+  "ui_within_one_index_or_between_indexes_and": {
+    "message": "Within one index: OR. Between indexes: AND."
+  },
+  "ui_clear_filters": {
+    "message": "Clear filters"
+  },
+  "ui_no_filters_enabled_showing_all_papers": {
+    "message": "No filters enabled. Showing all papers."
+  },
+  "ui_hide_currently_warned_journals": {
+    "message": "Hide currently warned journals"
+  },
+  "ui_uses_only_the_latest_2025_list_bundled_with_the_extension": {
+    "message": "Uses only the latest 2025 list bundled with the extension"
+  },
+  "ui_source": {
+    "message": "Source"
+  },
+  "ui_extended": {
+    "message": "Extended"
+  },
+  "ui_journal": {
+    "message": "Journal"
+  },
+  "ui_conference": {
+    "message": "Conference"
+  },
+  "ui_proceedings": {
+    "message": "Proceedings"
+  },
+  "ui_other_source": {
+    "message": "Other source"
+  },
+  "ui_included": {
+    "message": "Included"
+  },
+  "ui_rank": {
+    "message": "Rank"
+  },
+  "ui_type": {
+    "message": "Type"
+  },
+  "ui_field": {
+    "message": "Field"
+  },
+  "ui_year": {
+    "message": "Year"
+  },
+  "ui_canonical_name": {
+    "message": "Canonical name"
+  },
+  "ui_publisher": {
+    "message": "Publisher"
+  },
+  "ui_primary_topics": {
+    "message": "Primary topics"
+  },
+  "ui_information_source": {
+    "message": "Information source"
+  },
+  "ui_looking_up": {
+    "message": "Looking up…"
+  },
+  "ui_none": {
+    "message": "None"
+  },
+  "ui_no_topic_information": {
+    "message": "No topic information"
+  },
+  "ui_yes": {
+    "message": "Yes"
+  },
+  "ui_no": {
+    "message": "No"
+  },
+  "ui_subject": {
+    "message": "Subject"
+  },
+  "ui_broad_field_zone": {
+    "message": "Broad-field zone"
+  },
+  "ui_quartile": {
+    "message": "Quartile"
+  },
+  "ui_index_type": {
+    "message": "Index type"
+  },
+  "ui_edition": {
+    "message": "Edition"
+  },
+  "ui_source_type": {
+    "message": "Source type"
+  },
+  "ui_data_date": {
+    "message": "Data date"
+  },
+  "ui_catalog": {
+    "message": "Catalog"
+  },
+  "ui_list_year": {
+    "message": "List year"
+  },
+  "ui_warning_reason": {
+    "message": "Warning reason"
+  },
+  "ui_local_catalog": {
+    "message": "Local catalog"
+  },
+  "ui_local_catalog_crossref": {
+    "message": "Local catalog + Crossref"
+  },
+  "ui_local_catalog_crossref_cache": {
+    "message": "Local catalog + Crossref cache"
+  },
+  "ui_ccf_recommended_catalog": {
+    "message": "CCF recommended catalog"
+  },
+  "ui_no_ccf_rank_matched": {
+    "message": "No CCF rank matched"
+  },
+  "ui_cas_top_journal": {
+    "message": "CAS Top journal"
+  },
+  "ui_xinrui_academic_partitions": {
+    "message": "XinRui academic partitions"
+  },
+  "ui_web_of_science_indexing": {
+    "message": "Web of Science indexing"
+  },
+  "ui_chinese_social_sciences_citation_index": {
+    "message": "Chinese Social Sciences Citation Index"
+  },
+  "ui_a_guide_to_the_core_journals_of_china": {
+    "message": "A Guide to the Core Journals of China"
+  },
+  "ui_ei_compendex_source": {
+    "message": "Ei Compendex source"
+  },
+  "ui_source_details": {
+    "message": "Source details"
+  },
+  "ui_journal_details": {
+    "message": "Journal details"
+  },
+  "ui_conference_details": {
+    "message": "Conference details"
+  },
+  "ui_retry": {
+    "message": "Retry"
+  }
+}
+

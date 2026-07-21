@@ -579,39 +579,52 @@ function fuzzyVenueRecord(shard, normalized) {
   const candidate = venueAbbreviationKey(normalized);
   const candidateTokens = candidate.split(" ").filter(Boolean);
   if (!shard || candidateTokens.length < 2) return null;
-  let best = null;
-  let bestScore = -1;
+  for (const stored of shard.y || []) {
+    const storedTokens = stored.split(" ");
+    if (storedTokens.length !== candidateTokens.length) continue;
+    if (candidateTokens.every((token, position) =>
+      storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
+    )) return null;
+  }
+  const matches = new Set();
   for (const [stored, index] of Object.entries(shard.b)) {
     const storedTokens = stored.split(" ");
     if (storedTokens.length !== candidateTokens.length) continue;
     if (!candidateTokens.every((token, position) =>
       storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
     )) continue;
-    const record = shard.r[index] || null;
-    const score = venueRecordCompleteness(record) * 100 + candidateTokens.reduce(
-      (sum, token, position) => sum + Math.min(token.length, storedTokens[position].length),
-      0
-    );
-    if (score > bestScore) {
-      best = record;
-      bestScore = score;
-    }
+    matches.add(index);
+    if (matches.size > 1) return null;
   }
-  return best;
+  return matches.size === 1 ? shard.r[[...matches][0]] || null : null;
+}
+
+function prefixVenueRecord(shard, normalized, { includeExact = false } = {}) {
+  const tokens = normalized.split(" ").filter(Boolean);
+  if (!shard || tokens.length < 4 || normalized.length < 20) return null;
+  const matches = new Set();
+  for (const [stored, index] of Object.entries(shard.a)) {
+    if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) matches.add(index);
+    if (matches.size > 1) return false;
+  }
+  for (const stored of shard.x || []) {
+    if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) return false;
+  }
+  return matches.size === 1 ? shard.r[[...matches][0]] || null : null;
 }
 
 function matchVenueInPrimaryShard(shard, text) {
-  const normalized = normalizeVenue(text);
+  const normalized = normalizeVenue(text).replace(/(?:\s+\d+)+$/, "");
   if (!normalized) return null;
-  const exact = recordInVenueShard(shard, normalized, venueAbbreviationKey(normalized));
-  if (exact) return exact;
-  const words = normalized.split(" ");
-  for (let size = words.length - 1; size >= 1; size -= 1) {
-    const phrase = words.slice(0, size).join(" ");
-    const record = recordInVenueShard(shard, phrase, size >= 2 ? venueAbbreviationKey(phrase) : "");
-    if (record) return record;
+  if (shard?.x?.includes(normalized)) return null;
+  const truncated = /(?:\.\.\.|\u2026)+\s*$/.test(String(text || ""));
+  if (!truncated) {
+    const exact = recordInVenueShard(shard, normalized, venueAbbreviationKey(normalized));
+    if (exact) return exact;
   }
-  return fuzzyVenueRecord(shard, normalized);
+  const prefixed = prefixVenueRecord(shard, normalized, { includeExact: truncated });
+  if (prefixed === false) return null;
+  return prefixed || fuzzyVenueRecord(shard, normalized);
 }
 
 function normalizedDblpVenueKey(value) {
@@ -624,7 +637,6 @@ function normalizedDblpVenueKey(value) {
     return "";
   }
 }
-
 async function matchDblpVenues(request, sender) {
   if (!dblpSenderAllowed(sender)) return { ok: false, error: "DBLP matching is only available on DBLP pages" };
   const items = Array.isArray(request?.items) ? request.items.slice(0, 200) : [];
@@ -644,7 +656,7 @@ async function matchDblpVenues(request, sender) {
     const linked = linkedRecords.get(normalizedDblpVenueKey(item?.key));
     if (linked) return linked;
     const normalized = normalizeVenue(item?.text);
-    return matchVenueInPrimaryShard(shards.get(venueShardKey(normalized)), normalized);
+    return matchVenueInPrimaryShard(shards.get(venueShardKey(normalized)), item?.text);
   });
   const lineageRecords = new Map();
   items.forEach((item, index) => {

@@ -5,27 +5,37 @@
     {
       "date": "2026-07-13",
       "title": "新增新锐与当前预警",
-      "detail": "新增新锐 2026 期刊与会议分区，并加入 2025 最新国际期刊预警名单及“隐藏当前预警期刊”筛选。"
+      "titleEn": "XinRui partitions and current warnings",
+      "detail": "新增新锐 2026 期刊与会议分区，并加入 2025 最新国际期刊预警名单及“隐藏当前预警期刊”筛选。",
+      "detailEn": "Added the 2026 XinRui journal and conference partitions, the latest 2025 international journal warning list, and a filter for hiding currently warned journals."
     },
     {
       "date": "2026-07-13",
       "title": "合并中文期刊重复记录",
-      "detail": "合并 178 组重复期刊记录，保留 CSSCI、北大核心和 EI 等全部索引信息，避免同一期刊显示不同标签。"
+      "titleEn": "Merged duplicate Chinese journal records",
+      "detail": "合并 178 组重复期刊记录，保留 CSSCI、北大核心和 EI 等全部索引信息，避免同一期刊显示不同标签。",
+      "detailEn": "Merged 178 duplicate journal groups while preserving all CSSCI, PKU Core, EI, and other index metadata."
     },
     {
       "date": "2026-07-12",
       "title": "新增社科、中文核心与 EI",
-      "detail": "加入 SSCI 说明、CSSCI 2025–2026、北大核心 2023 和 Elsevier 官方 Ei Compendex 来源表。"
+      "titleEn": "Social-science, Chinese Core, and EI coverage",
+      "detail": "加入 SSCI 说明、CSSCI 2025–2026、北大核心 2023 和 Elsevier 官方 Ei Compendex 来源表。",
+      "detailEn": "Added SSCI explanations, CSSCI 2025–2026, PKU Core 2023, and Elsevier's official Ei Compendex source list."
     },
     {
       "date": "2026-07-12",
       "title": "新增两级论文筛选",
-      "detail": "先选 CCF、JCR、中科院、CSSCI、WoS、EI 或北大核心，再勾选允许的等级或类型。"
+      "titleEn": "Two-level publication filters",
+      "detail": "先选 CCF、JCR、中科院、CSSCI、WoS、EI 或北大核心，再勾选允许的等级或类型。",
+      "detailEn": "Choose CCF, JCR, CAS, CSSCI, WoS, EI, or PKU Core first, then select the accepted ranks or types."
     },
     {
       "date": "2026-07-12",
       "title": "签名数据库继续启用",
-      "detail": "更新只从本插件发布仓库下载，并通过 ECDSA P-256、SHA-256 与 AES-GCM 校验。"
+      "titleEn": "Signed database updates remain enabled",
+      "detail": "更新只从本插件发布仓库下载，并通过 ECDSA P-256、SHA-256 与 AES-GCM 校验。",
+      "detailEn": "Updates are downloaded only from this extension's release repository and verified with ECDSA P-256, SHA-256, and AES-GCM."
     }
   ]
 }

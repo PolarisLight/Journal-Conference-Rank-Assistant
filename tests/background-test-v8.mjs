@@ -128,6 +128,23 @@ assert.equal(matchedVenues.records[0][0], "IEEE Access");
 assert.match(matchedVenues.records[1][0], /COMPUTER VISION AND IMAGE UNDERSTANDING/i);
 assert.match(matchedVenues.records[2][0], /JOURNAL OF THE ASSOCIATION FOR INFORMATION SCIENCE AND TECHNOLOGY/i);
 assert.ok(matchedVenues.shardCount <= 3, "DBLP matching should load only primary venue shards");
+const safeDblpMatches = await message(
+  {
+    type: "rank-assistant-match-dblp-venues",
+    items: [
+      { text: "IEEE Transactions on Pattern Analysis and Machine...", key: "" },
+      { text: "ACM International Conference on Mobile...", key: "" },
+      { text: "Analysis of results", key: "" },
+      { text: "Advances in Applied Mathematics...", key: "" }
+    ]
+  },
+  { url: "https://dblp.org/search?q=safety" }
+);
+assert.match(safeDblpMatches.records[0][0], /^IEEE Transactions on Pattern Analysis and Machine Intelligence$/i);
+assert.equal(safeDblpMatches.records[0][1], "A");
+assert.equal(safeDblpMatches.records[1], null, "Ambiguous DBLP prefixes must not guess a venue");
+assert.equal(safeDblpMatches.records[2], null, "Generic phrases must not match a short journal title");
+assert.equal(safeDblpMatches.records[3], null, "A truncated DBLP venue that equals another full title must remain unmatched");
 const matchedDenied = await message(
   { type: "rank-assistant-match-dblp-venues", items: [{ text: "IEEE Access 14" }] },
   { url: "https://example.com/" }

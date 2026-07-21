@@ -5,6 +5,7 @@ const { JSDOM } = await import("file:///C:/Users/polaris/Documents/Codex/2026-07
 
 const root = process.argv[2] || process.cwd();
 const normalizer = fs.readFileSync(path.join(root, "extension/lib/normalizer.js"), "utf8");
+const i18n = fs.readFileSync(path.join(root, "extension/lib/i18n.js"), "utf8");
 const contentScript = fs.readFileSync(path.join(root, "extension/content/content-v7.js"), "utf8");
 const filterUi = fs.readFileSync(path.join(root, "extension/content/filter-ui.js"), "utf8");
 const paletteCss = fs.readFileSync(path.join(root, "extension/content/palettes.css"), "utf8");
@@ -185,6 +186,11 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   });
   dom.window.fetch = async (value) => {
     const address = String(value);
+    if (address.includes("/_locales/")) {
+      const relative = address.split("moz-extension://test/")[1];
+      const file = path.join(root, relative);
+      return { ok: true, status: 200, json: async () => JSON.parse(fs.readFileSync(file, "utf8")) };
+    }
     if (address.startsWith("moz-extension://")) {
       catalogFetches += 1;
       const file = path.join(root, "extension/data", address.split("/").at(-1));
@@ -198,6 +204,7 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   dom.window.console.error = (...args) => errors.push(args.map(String).join(" "));
   dom.window.console.warn = (...args) => errors.push(args.map(String).join(" "));
   dom.window.eval(normalizer);
+  dom.window.eval(i18n);
   dom.window.eval(contentScript);
   dom.window.eval(filterUi);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
@@ -345,6 +352,53 @@ assert.equal(scholarDoc.querySelector('.rank-assistant-badge[data-kind="jcr"]').
 assert.ok(!scholarLabels.includes("\u4e2d\u79d1\u9662 Top"), JSON.stringify(scholarLabels));
 assert.ok(scholar.catalogFetches < 3, "Scholar should load fewer than the old three full catalog files");
 
+const scholarProfileHtml = '<table><tbody><tr class="gsc_a_tr" id="profile-paper"><td class="gsc_a_t"><a class="gsc_a_at">A highly cited profile paper</a><div class="gs_gray">A Researcher</div><div class="gs_gray">Nature 521 (7553), 436-444, 2015</div></td></tr></tbody></table>';
+const scholarProfile = await run("https://scholar.google.com/citations?user=test", scholarProfileHtml, 900);
+const scholarProfileDoc = scholarProfile.dom.window.document;
+assert.ok(scholarProfileDoc.querySelector(".gsc_a_at + .rank-assistant-row"), "Scholar profile badges must sit after the publication title");
+assert.ok([...scholarProfileDoc.querySelectorAll("#profile-paper .rank-assistant-badge")].some((node) => node.textContent === "JCR Q1"));
+assert.ok(scholarProfileDoc.querySelector("#profile-paper .gs_gray:nth-of-type(2) .rank-assistant-venue-detail"), "Scholar profile venue details must sit on the publication venue line");
+
+const natureSearchHtml = '<main><article data-test="article-listing" id="nature-result"><h3><a href="/articles/example">Nature search result</a></h3><span class="publication-title">Nature</span></article></main>';
+const natureSearch = await run("https://www.nature.com/search?q=ai", natureSearchHtml, 900);
+const natureSearchDoc = natureSearch.dom.window.document;
+assert.ok(natureSearchDoc.querySelector("#nature-result h3 a + .rank-assistant-row"));
+assert.ok([...natureSearchDoc.querySelectorAll("#nature-result .rank-assistant-badge")].some((node) => node.textContent === "中科院 1区 Top"));
+assert.ok(natureSearchDoc.querySelector("#nature-result .publication-title + .rank-assistant-venue-detail"));
+
+const scienceDirectHtml = '<main><div class="result-item" id="sd-result"><h2><a href="/science/article/pii/test">Publisher result</a></h2><div class="publication-title">Computers &amp; Electrical Engineering</div></div></main>';
+const scienceDirect = await run("https://www.sciencedirect.com/search?qs=vision", scienceDirectHtml, 900);
+const scienceDirectDoc = scienceDirect.dom.window.document;
+assert.ok(scienceDirectDoc.querySelector("#sd-result h2 a + .rank-assistant-row"));
+assert.ok([...scienceDirectDoc.querySelectorAll("#sd-result .rank-assistant-badge")].some((node) => node.textContent.startsWith("预警 ")));
+
+const publisherArticleHtml = '<head><meta name="citation_title" content="Article page"><meta name="citation_journal_title" content="IEEE Transactions on Pattern Analysis and Machine Intelligence"></head><body><main><article id="publisher-article"><h1>Article page</h1></article></main></body>';
+const publisherArticle = await run("https://ieeexplore.ieee.org/document/123", publisherArticleHtml, 900);
+const publisherArticleDoc = publisherArticle.dom.window.document;
+assert.ok(publisherArticleDoc.querySelector("#publisher-article h1 + .rank-assistant-row"), "Article pages must use citation_journal_title metadata");
+assert.ok([...publisherArticleDoc.querySelectorAll("#publisher-article .rank-assistant-badge")].some((node) => node.textContent === "CCF A"));
+
+const publisherHome = await run("https://www.nature.com/", "<main><h1>Nature</h1></main>", 300);
+assert.equal(publisherHome.dom.window.document.querySelector("#rank-assistant-filter-host"), null, "Publisher homepages without papers must not create the filter UI");
+assert.equal(publisherHome.dom.window.document.documentElement.dataset.paperRankStatus, "idle", "Publisher homepages must not keep a broad DOM observer running");
+
+const english = await run("https://scholar.google.com/scholar?q=nature", scholarHtml, 900, { language: "en" });
+const englishDoc = english.dom.window.document;
+const englishFilter = englishDoc.querySelector("#rank-assistant-filter-host").shadowRoot;
+assert.equal(englishFilter.querySelector("#glyph").textContent, "F");
+assert.equal(englishFilter.querySelector("h2").textContent, "Filter papers");
+assert.equal(englishFilter.querySelector("#launcher").getAttribute("aria-label"), "Paper filters");
+const englishLabels = [...englishDoc.querySelectorAll(".rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(englishLabels.includes("CAS Zone 1 Top"), JSON.stringify(englishLabels));
+const englishVenue = englishDoc.querySelector(".rank-assistant-venue-detail");
+assert.equal(englishVenue.textContent, "Journal details");
+assert.match(englishVenue.dataset.tooltip, /Publisher: Nature Publishing Group|Publisher:/);
+assert.match(englishVenue.dataset.tooltip, /Primary topics:/);
+
+english.changeSettings({ language: "fr" });
+await new Promise((resolve) => setTimeout(resolve, 40));
+assert.equal(englishDoc.querySelector("#rank-assistant-filter-host").shadowRoot.querySelector("#glyph").textContent, "筛", "Unsupported stored languages must fall back to Chinese");
+
 const systemTheme = await run("https://scholar.google.com/scholar?q=theme", scholarHtml, 900, { colorTheme: "system" }, true);
 assert.equal(systemTheme.dom.window.document.documentElement.dataset.paperRankTheme, "dark");
 assert.equal(systemTheme.dom.window.document.querySelector("#rank-assistant-filter-host").dataset.theme, "dark");
@@ -431,7 +485,105 @@ const semantic = await run("https://www.semanticscholar.org/search?q=ai", semant
 const semanticDoc = semantic.dom.window.document;
 assert.ok(semanticDoc.querySelector('a[href*="/paper/"] + .rank-assistant-row'));
 assert.ok([...semanticDoc.querySelectorAll(".rank-assistant-badge")].some((node) => node.textContent === "JCR Q1"));
+const semanticVenueHtml = [
+  '<div data-testid="paper-row" id="semantic-cvpr"><a href="/paper/reltransformer">RelTransformer</a><a class="cl-paper-venue" href="/venue/Computer-Vision-and-Pattern-Recognition/123">Computer Vision and Pattern Recognition</a></div>',
+  '<div data-testid="paper-row" id="semantic-ijcai"><a href="/paper/icl">ICL</a><span data-selenium-selector="paper-venue">International Joint Conference on Artificial...</span></div>',
+  '<div data-testid="paper-row" id="semantic-tpami"><a href="/paper/pi">PI</a><span data-selenium-selector="paper-venue">IEEE Transactions on Pattern Analysis and Machine...</span></div>',
+  '<div data-testid="paper-row" id="semantic-pr"><a href="/paper/pr">PR paper</a><span data-selenium-selector="paper-venue">Pattern Recognition</span></div>',
+  '<div data-testid="paper-row" id="semantic-cvpr-short"><a href="/paper/cvpr">CVPR paper</a><span data-selenium-selector="paper-venue">CVPR</span></div>',
+  '<div data-testid="paper-row" id="semantic-ambiguous"><a href="/paper/mobile">Mobile paper</a><span data-selenium-selector="paper-venue">ACM International Conference on Mobile...</span></div>',
+  '<div data-testid="paper-row" id="semantic-generic"><a href="/paper/generic">Generic paper</a><span data-selenium-selector="paper-venue">Analysis of results</span></div>',
+  '<div data-testid="paper-row" id="semantic-short-title-conflict"><a href="/paper/conflict">Conflict paper</a><span data-selenium-selector="paper-venue">Advances in Applied Mathematics...</span></div>'
+].join("");
+const semanticVenues = await run("https://www.semanticscholar.org/search?q=long-tail", semanticVenueHtml, 1100);
+const semanticVenuesDoc = semanticVenues.dom.window.document;
+const semanticLabels = (id) => [...semanticVenuesDoc.querySelectorAll("#" + id + " .rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(semanticLabels("semantic-cvpr").includes("CCF A"), JSON.stringify(semanticLabels("semantic-cvpr")));
+assert.ok(!semanticLabels("semantic-cvpr").some((label) => /^(?:JCR|IF|SCI|SCIE)/.test(label)), JSON.stringify(semanticLabels("semantic-cvpr")));
+assert.equal(semanticVenuesDoc.querySelector("#semantic-cvpr .rank-assistant-venue-detail").textContent, "\u4f1a\u8bae\u8be6\u60c5");
+assert.ok(semanticLabels("semantic-ijcai").includes("CCF B"), JSON.stringify(semanticLabels("semantic-ijcai")));
+assert.equal(semanticVenuesDoc.querySelector("#semantic-ijcai .rank-assistant-venue-detail").textContent, "\u4f1a\u8bae\u8be6\u60c5");
+assert.ok(semanticLabels("semantic-tpami").includes("CCF A"), JSON.stringify(semanticLabels("semantic-tpami")));
+assert.ok(semanticLabels("semantic-tpami").includes("JCR Q1"), JSON.stringify(semanticLabels("semantic-tpami")));
+assert.ok(semanticLabels("semantic-tpami").includes("SCI/SCIE"), JSON.stringify(semanticLabels("semantic-tpami")));
+assert.equal(semanticVenuesDoc.querySelector("#semantic-tpami .rank-assistant-venue-detail").textContent, "\u671f\u520a\u8be6\u60c5");
+assert.ok(semanticLabels("semantic-pr").includes("CCF B"), JSON.stringify(semanticLabels("semantic-pr")));
+assert.ok(semanticLabels("semantic-pr").includes("JCR Q1"), JSON.stringify(semanticLabels("semantic-pr")));
+assert.ok(semanticLabels("semantic-cvpr-short").includes("CCF A"), JSON.stringify(semanticLabels("semantic-cvpr-short")));
+assert.deepEqual(semanticLabels("semantic-ambiguous"), ["CCF None"], "Ambiguous Semantic Scholar prefixes must not guess");
+assert.deepEqual(semanticLabels("semantic-generic"), ["CCF None"], "Generic Semantic Scholar phrases must not match a short journal title");
 
+assert.deepEqual(semanticLabels("semantic-short-title-conflict"), ["CCF None"], "A truncated name that equals another full title must remain unmatched");
+
+const safetyLabels = (doc, id) => [...doc.querySelectorAll("#" + id + " .rank-assistant-badge")].map((node) => node.textContent);
+const assertOnlyNone = (doc, id) => assert.deepEqual(safetyLabels(doc, id), ["CCF None"], id + " must remain unmatched");
+
+const scholarSafetyHtml = [
+  '<div class="gs_r gs_or gs_scl" id="scholar-safe-tpami"><div class="gs_ri"><h3 class="gs_rt"><a>TPAMI paper</a></h3><div class="gs_a">A Author - IEEE Transactions on Pattern Analysis and Machine..., 2025 - ieee.org</div></div></div>',
+  '<div class="gs_r gs_or gs_scl" id="scholar-safe-ambiguous"><div class="gs_ri"><h3 class="gs_rt"><a>Mobile paper</a></h3><div class="gs_a">A Author - ACM International Conference on Mobile..., 2025 - acm.org</div></div></div>',
+  '<div class="gs_r gs_or gs_scl" id="scholar-safe-generic"><div class="gs_ri"><h3 class="gs_rt"><a>Generic paper</a></h3><div class="gs_a">A Author - Analysis of results, 2025 - example.org</div></div></div>'
+].join("");
+const scholarSafety = await run("https://scholar.google.com/scholar?q=safe", scholarSafetyHtml, 1000);
+assert.ok(safetyLabels(scholarSafety.dom.window.document, "scholar-safe-tpami").includes("CCF A"));
+assert.ok(safetyLabels(scholarSafety.dom.window.document, "scholar-safe-tpami").includes("JCR Q1"));
+assertOnlyNone(scholarSafety.dom.window.document, "scholar-safe-ambiguous");
+assertOnlyNone(scholarSafety.dom.window.document, "scholar-safe-generic");
+
+const arxivSafetyHtml = [
+  '<li class="arxiv-result" id="arxiv-safe-ijcai"><p class="title">IJCAI paper</p><p class="comments">Comments: Accepted at International Joint Conference on Artificial Intelligence 2025</p></li>',
+  '<li class="arxiv-result" id="arxiv-safe-generic"><p class="title">Generic paper</p><p class="comments">Comments: Analysis of results</p></li>'
+].join("");
+const arxivSafety = await run("https://arxiv.org/search/?query=safe&searchtype=all", "<ol>" + arxivSafetyHtml + "</ol>", 1000);
+assert.ok(safetyLabels(arxivSafety.dom.window.document, "arxiv-safe-ijcai").includes("CCF B"));
+assertOnlyNone(arxivSafety.dom.window.document, "arxiv-safe-generic");
+
+const pubmedSafetyHtml = [
+  '<article class="full-docsum" id="pubmed-safe-tpami"><a class="docsum-title">TPAMI paper</a><span class="docsum-journal-citation">IEEE Trans Pattern Anal Mach Intell. 2025;1:1.</span></article>',
+  '<article class="full-docsum" id="pubmed-safe-generic"><a class="docsum-title">Generic paper</a><span class="docsum-journal-citation">Analysis of results. 2025;1:1.</span></article>'
+].join("");
+const pubmedSafety = await run("https://pubmed.ncbi.nlm.nih.gov/?term=safe", "<main>" + pubmedSafetyHtml + "</main>", 1000);
+assert.ok(safetyLabels(pubmedSafety.dom.window.document, "pubmed-safe-tpami").includes("CCF A"));
+assertOnlyNone(pubmedSafety.dom.window.document, "pubmed-safe-generic");
+
+const openAlexSafetyHtml = [
+  '<article data-testid="work-result" id="openalex-safe-tpami"><a href="/works/W1">TPAMI paper</a><span data-testid="source">IEEE Transactions on Pattern Analysis and Machine...</span></article>',
+  '<article data-testid="work-result" id="openalex-safe-generic"><a href="/works/W2">Generic paper</a><span data-testid="source">Analysis of results</span></article>'
+].join("");
+const openAlexSafety = await run("https://openalex.org/works?search=safe", openAlexSafetyHtml, 1000);
+assert.ok(safetyLabels(openAlexSafety.dom.window.document, "openalex-safe-tpami").includes("CCF A"));
+assertOnlyNone(openAlexSafety.dom.window.document, "openalex-safe-generic");
+
+const cnkiSafetyHtml = '<table class="result-table-list"><tbody><tr id="cnki-safe-generic"><td class="name"><a class="fz14" href="/kcms2/article/abstract?v=safe">Generic paper</a></td><td class="source"><a>Analysis of results</a></td></tr></tbody></table>';
+const cnkiSafety = await run("https://kns.cnki.net/kns8s/defaultresult/index", cnkiSafetyHtml, 1000);
+assertOnlyNone(cnkiSafety.dom.window.document, "cnki-safe-generic");
+
+const wanfangSafetyHtml = '<div class="normal-list-item" id="wanfang-safe-generic"><div class="title"><a href="https://d.wanfangdata.com.cn/periodical/safe">Generic paper</a></div><div class="source"><a>Analysis of results</a></div></div>';
+const wanfangSafety = await run("https://s.wanfangdata.com.cn/paper?q=safe", wanfangSafetyHtml, 1000);
+assertOnlyNone(wanfangSafety.dom.window.document, "wanfang-safe-generic");
+
+const aminerSafetyHtml = [
+  '<div class="paper-item" id="aminer-safe-tpami"><a class="title-link" href="/pub/tpami"><span class="paper-title">TPAMI paper</span></a><div class="conf-info-zone"><div class="venue-link"><a>IEEE Transactions on Pattern Analysis and Machine...</a></div></div></div>',
+  '<div class="paper-item" id="aminer-safe-generic"><a class="title-link" href="/pub/generic"><span class="paper-title">Generic paper</span></a><div class="conf-info-zone"><div class="venue-link"><a>Analysis of results</a></div></div></div>'
+].join("");
+const aminerSafety = await run("https://www.aminer.cn/search/pub?q=safe", aminerSafetyHtml, 1000);
+assert.ok(safetyLabels(aminerSafety.dom.window.document, "aminer-safe-tpami").includes("CCF A"));
+assertOnlyNone(aminerSafety.dom.window.document, "aminer-safe-generic");
+
+const baiduSafetyHtml = [
+  '<div class="paper-wrap result" id="baidu-safe-tpami"><h3 class="paper-title"><a href="/usercenter/paper/show?paperid=tpami">TPAMI paper</a></h3><div class="paper-info"><span>Author</span> - <span>&#12298;IEEE Transactions on Pattern Analysis and Machine...&#12299;</span> - <span>2025</span></div></div>',
+  '<div class="paper-wrap result" id="baidu-safe-generic"><h3 class="paper-title"><a href="/usercenter/paper/show?paperid=generic">Generic paper</a></h3><div class="paper-info"><span>Author</span> - <span>&#12298;Analysis of results&#12299;</span> - <span>2025</span></div></div>'
+].join("");
+const baiduSafety = await run("https://xueshu.baidu.com/ndscholar/browse/search?wd=safe", baiduSafetyHtml, 1000);
+assert.ok(safetyLabels(baiduSafety.dom.window.document, "baidu-safe-tpami").includes("CCF A"));
+assertOnlyNone(baiduSafety.dom.window.document, "baidu-safe-generic");
+
+const publisherSafetyHtml = [
+  '<div class="result-item" id="publisher-safe-tpami"><h2><a href="/science/article/pii/tpami">TPAMI paper</a></h2><div class="publication-title">IEEE Transactions on Pattern Analysis and Machine...</div></div>',
+  '<div class="result-item" id="publisher-safe-generic"><h2><a href="/science/article/pii/generic">Generic paper</a></h2><div class="publication-title">Analysis of results</div></div>'
+].join("");
+const publisherSafety = await run("https://www.sciencedirect.com/search?qs=safe", "<main>" + publisherSafetyHtml + "</main>", 1000);
+assert.ok(safetyLabels(publisherSafety.dom.window.document, "publisher-safe-tpami").includes("CCF A"));
+assertOnlyNone(publisherSafety.dom.window.document, "publisher-safe-generic");
 const openAlexHtml = '<article data-testid="work-result"><a href="/works/W123">An OpenAlex paper</a><span data-testid="source">Nature</span></article>';
 const openAlex = await run("https://openalex.org/works?search=ai", openAlexHtml);
 const openAlexDoc = openAlex.dom.window.document;
@@ -453,6 +605,26 @@ const wanfangDoc = wanfang.dom.window.document;
 assert.ok(wanfangDoc.querySelector(".title a + .rank-assistant-row"), "Wanfang badges must sit after the paper title");
 assert.ok([...wanfangDoc.querySelectorAll(".rank-assistant-badge")].some((node) => node.textContent === "北大核心"));
 assert.ok(wanfangDoc.querySelector(".source a + .rank-assistant-venue-detail"));
+const aminerHtml = '<div class="paper-item" id="aminer-paper"><a class="title-link" href="/pub/example"><span class="paper-title">An AMiner paper</span></a><div class="conf-info-zone"><div class="venue-link"><a href="/open/journal/detail/example">IEEE Access&#65288;2021&#65289;</a></div></div></div>';
+const aminer = await run("https://www.aminer.cn/search/pub?q=resnet", aminerHtml, 900);
+const aminerDoc = aminer.dom.window.document;
+assert.ok(aminerDoc.querySelector(".title-link + .rank-assistant-row"), "AMiner badges must sit after the paper title");
+assert.ok([...aminerDoc.querySelectorAll(".rank-assistant-badge")].some((node) => node.textContent === "SCI/SCIE"));
+assert.ok(aminerDoc.querySelector(".conf-info-zone .rank-assistant-venue-detail"), aminerDoc.querySelector("#aminer-paper")?.outerHTML);
+
+const baiduScholarHtml = '<div class="paper-wrap result" id="baidu-paper"><h3 class="paper-title"><a href="/usercenter/paper/show?paperid=example">A Baidu Scholar paper</a></h3><div class="paper-info"><span class="paper-type">journal</span><span>Author</span> - <span><span>&#12298;Nature&#12299;</span></span> - <span>Cited 10</span> - <span>2025</span></div></div>';
+const baiduScholar = await run("https://xueshu.baidu.com/ndscholar/browse/search?wd=attention", baiduScholarHtml, 900);
+const baiduScholarDoc = baiduScholar.dom.window.document;
+assert.ok(baiduScholarDoc.querySelector(".paper-title a + .rank-assistant-row"), "Baidu Scholar badges must sit after the paper title");
+assert.ok([...baiduScholarDoc.querySelectorAll(".rank-assistant-badge")].some((node) => node.textContent === "JCR Q1"));
+assert.ok(baiduScholarDoc.querySelector(".paper-info + .rank-assistant-venue-detail"));
+
+const researchGateHtml = '<head><meta name="citation_title" content="ResearchGate article"><meta name="citation_journal_title" content="Nature"></head><body><main><article id="researchgate-article"><h1>ResearchGate article</h1></article></main></body>';
+const researchGate = await run("https://www.researchgate.net/publication/123_example", researchGateHtml, 900);
+const researchGateDoc = researchGate.dom.window.document;
+assert.ok(researchGateDoc.querySelector("#researchgate-article h1 + .rank-assistant-row"), "ResearchGate public article metadata must be supported when exposed");
+assert.ok([...researchGateDoc.querySelectorAll(".rank-assistant-badge")].some((node) => node.textContent === "JCR Q1"));
+
 const recoveredHtml = '<div id="completesearch-publs"><div class="body"><p>found 2405 matches</p><ul class="error"><li>service temporarily not available</li></ul></div></div>';
 const recovered = await run("https://dblp.org/search?q=long+tail", recoveredHtml, 2200);
 assert.equal(recovered.apiFetches, 1);
@@ -496,9 +668,125 @@ assert.equal(stressDoc.querySelectorAll(".rank-assistant-row").length, 100);
 assert.equal(stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, 0, "Tooltip DOM is lazy and singleton");
 stressDoc.querySelector(".rank-assistant-badge").click();
 assert.equal(stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, 0);
+const chromeManifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+const firefoxManifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.firefox.json"), "utf8"));
+const manifestMatches = chromeManifest.content_scripts.flatMap((entry) => entry.matches || []);
+assert.deepEqual(
+  firefoxManifest.content_scripts.flatMap((entry) => entry.matches || []),
+  manifestMatches,
+  "Chrome and Firefox must declare the same site coverage"
+);
+assert.equal(new Set(manifestMatches).size, manifestMatches.length, "Manifest site patterns must be unique");
+
+function canonicalManifestUrl(pattern) {
+  return pattern.replace("https://*.", "https://matrix.").replace(/\/\*$/, "/search?q=manifest-matrix");
+}
+
+function manifestFixture(url) {
+  const host = new URL(url).hostname;
+  if (/(^|\.)dblp\.(org|uni-trier\.de|dagstuhl\.de)$/.test(host)) {
+    return '<section id="completesearch-publs"><ul class="publ-list"><li class="entry article" id="matrix-known"><cite class="data"><span class="title" itemprop="name">Known paper.</span><span itemprop="isPartOf"><a href="/db/journals/access/"><span itemprop="name">IEEE Access</span></a></span></cite></li></ul></section>';
+  }
+  if (host === "scholar.google.com" || host === "scholar.googleusercontent.com") {
+    return '<div class="gs_r gs_or gs_scl" id="matrix-known"><div class="gs_ri"><h3 class="gs_rt"><a>Known paper</a></h3><div class="gs_a">A Author - Nature, 2025 - nature.com</div></div></div><div class="gs_r gs_or gs_scl" id="matrix-unknown"><div class="gs_ri"><h3 class="gs_rt"><a>Unknown paper</a></h3><div class="gs_a">A Author - Analysis of results, 2025 - example.org</div></div></div>';
+  }
+  if (host === "arxiv.org") {
+    return '<ol><li class="arxiv-result" id="matrix-known"><p class="title">Known paper</p><p class="comments">Comments: Accepted at AAAI Conference on Artificial Intelligence 2026</p></li><li class="arxiv-result" id="matrix-unknown"><p class="title">Unknown paper</p><p class="comments">Comments: Analysis of results</p></li></ol>';
+  }
+  if (host === "pubmed.ncbi.nlm.nih.gov") {
+    return '<main><article class="full-docsum" id="matrix-known"><a class="docsum-title">Known paper</a><span class="docsum-journal-citation">IEEE Access. 2025;13:1.</span></article><article class="full-docsum" id="matrix-unknown"><a class="docsum-title">Unknown paper</a><span class="docsum-journal-citation">Analysis of results. 2025;1:1.</span></article></main>';
+  }
+  if (host === "www.semanticscholar.org" || host === "semanticscholar.org") {
+    return '<div data-testid="paper-row" id="matrix-known"><a href="/paper/known">Known paper</a><span class="cl-paper-venue">Nature</span></div><div data-testid="paper-row" id="matrix-unknown"><a href="/paper/unknown">Unknown paper</a><span class="cl-paper-venue">Analysis of results</span></div>';
+  }
+  if (host === "openalex.org" || host === "www.openalex.org") {
+    return '<article data-testid="work-result" id="matrix-known"><a href="/works/W1">Known paper</a><span data-testid="source">Nature</span></article><article data-testid="work-result" id="matrix-unknown"><a href="/works/W2">Unknown paper</a><span data-testid="source">Analysis of results</span></article>';
+  }
+  if (host === "kns.cnki.net" || host === "kns8.cnki.net") {
+    return '<table class="result-table-list"><tbody><tr id="matrix-known"><td class="name"><a class="fz14" href="/kcms2/article/abstract?v=known">Known paper</a></td><td class="source"><a>IEEE Access</a></td></tr><tr id="matrix-unknown"><td class="name"><a class="fz14" href="/kcms2/article/abstract?v=unknown">Unknown paper</a></td><td class="source"><a>Analysis of results</a></td></tr></tbody></table>';
+  }
+  if (host === "s.wanfangdata.com.cn") {
+    return '<div class="normal-list-item" id="matrix-known"><div class="title"><a href="https://d.wanfangdata.com.cn/periodical/known">Known paper</a></div><div class="source"><a>IEEE Access</a></div></div><div class="normal-list-item" id="matrix-unknown"><div class="title"><a href="https://d.wanfangdata.com.cn/periodical/unknown">Unknown paper</a></div><div class="source"><a>Analysis of results</a></div></div>';
+  }
+  if (host === "www.aminer.cn" || host === "aminer.cn") {
+    return '<div class="paper-item" id="matrix-known"><a class="title-link" href="/pub/known"><span class="paper-title">Known paper</span></a><div class="conf-info-zone"><div class="venue-link"><a>IEEE Access</a></div></div></div><div class="paper-item" id="matrix-unknown"><a class="title-link" href="/pub/unknown"><span class="paper-title">Unknown paper</span></a><div class="conf-info-zone"><div class="venue-link"><a>Analysis of results</a></div></div></div>';
+  }
+  if (host === "xueshu.baidu.com") {
+    return '<div class="paper-wrap result" id="matrix-known"><h3 class="paper-title"><a href="/usercenter/paper/show?paperid=known">Known paper</a></h3><div class="paper-info"><span>Author</span> - <span><span>&#12298;Nature&#12299;</span></span> - <span>2025</span></div></div><div class="paper-wrap result" id="matrix-unknown"><h3 class="paper-title"><a href="/usercenter/paper/show?paperid=unknown">Unknown paper</a></h3><div class="paper-info"><span>Author</span> - <span><span>&#12298;Analysis of results&#12299;</span></span> - <span>2025</span></div></div>';
+  }
+  return '<main><div class="result-item" id="matrix-known"><h2><a href="/article/known">Known paper</a></h2><div class="publication-title">Nature</div></div><div class="result-item" id="matrix-unknown"><h2><a href="/article/unknown">Unknown paper</a></h2><div class="publication-title">Analysis of results</div></div></main>';
+}
+
+const manifestMatrix = [];
+for (const pattern of manifestMatches) {
+  const url = canonicalManifestUrl(pattern);
+  const page = await run(url, manifestFixture(url), 220);
+  const known = [...page.dom.window.document.querySelectorAll("#matrix-known .rank-assistant-badge")].map((node) => node.textContent);
+  assert.ok(known.some((label) => label !== "CCF None"), pattern + " did not recognize a known venue");
+  if (!/(^|\.)dblp\.(org|uni-trier\.de|dagstuhl\.de)$/.test(new URL(url).hostname)) {
+    const unknown = [...page.dom.window.document.querySelectorAll("#matrix-unknown .rank-assistant-badge")].map((node) => node.textContent);
+    assert.deepEqual(unknown, ["CCF None"], pattern + " guessed a generic non-venue phrase");
+  }
+  manifestMatrix.push(pattern);
+}
+
+const publisherPatterns = manifestMatches.filter((pattern) => {
+  const host = new URL(canonicalManifestUrl(pattern)).hostname;
+  return !/(^|\.)dblp\.(org|uni-trier\.de|dagstuhl\.de)$/.test(host)
+    && !["scholar.google.com", "scholar.googleusercontent.com", "arxiv.org", "pubmed.ncbi.nlm.nih.gov", "www.semanticscholar.org", "semanticscholar.org", "openalex.org", "www.openalex.org", "kns.cnki.net", "kns8.cnki.net", "s.wanfangdata.com.cn", "www.aminer.cn", "aminer.cn", "xueshu.baidu.com"].includes(host);
+});
+for (const pattern of publisherPatterns) {
+  const url = canonicalManifestUrl(pattern).replace("/search?q=manifest-matrix", "/article/manifest-matrix");
+  const detailHtml = '<head><meta name="citation_title" content="Known article"><meta name="citation_journal_title" content="Nature"></head><body><main><article id="matrix-detail"><h1>Known article</h1></article></main></body>';
+  const page = await run(url, detailHtml, 220);
+  const labels = [...page.dom.window.document.querySelectorAll("#matrix-detail .rank-assistant-badge")].map((node) => node.textContent);
+  assert.ok(labels.includes("JCR Q1"), pattern + " did not recognize article-detail metadata");
+}
+const diverseVenueCases = [
+  { venue: "IEEE Transactions on Pattern Analysis and Machine Intelligence", expected: ["CCF A", "\u4e2d\u79d1\u9662 1\u533a Top", "JCR Q1", "SCI/SCIE", "EI"], kind: "journal" },
+  { venue: "Pattern Recognition", expected: ["CCF B", "JCR Q1", "SCI/SCIE"], kind: "journal" },
+  { venue: "Expert Systems with Applications", expected: ["CCF C", "JCR Q1", "SCI/SCIE", "EI"], kind: "journal" },
+  { venue: "Journal of the ACM", expected: ["CCF A", "\u4e2d\u79d1\u9662 2\u533a", "JCR Q2", "SCI/SCIE", "EI"], kind: "journal" },
+  { venue: "2D Materials", expected: ["\u4e2d\u79d1\u9662 3\u533a", "JCR Q2", "SCI/SCIE", "EI"], kind: "journal" },
+  { venue: "3 Biotech", expected: ["\u4e2d\u79d1\u9662 4\u533a", "JCR Q3", "SCI/SCIE"], kind: "journal" },
+  { venue: "20 Et 21-Revue D Histoire", expected: ["\u4e2d\u79d1\u9662 4\u533a", "JCR Q4", "AHCI"], kind: "journal" },
+  { venue: "Academy of Management Annals", expected: ["\u4e2d\u79d1\u9662 1\u533a Top", "JCR Q1", "SSCI"], kind: "journal" },
+  { venue: "IEEE/CVF Computer Vision and Pattern Recognition Conference", expected: ["CCF A"], kind: "conference" },
+  { venue: "International Joint Conference on Artificial Intelligence", expected: ["CCF B"], kind: "conference" },
+  { venue: "International Conference on Pattern Recognition", expected: ["CCF C"], kind: "conference" },
+  { venue: "NeurIPS", expected: ["CCF A", "\u65b0\u9510 1\u533a Top"], kind: "conference" },
+  { venue: "International Conference on Machine Learning", expected: ["CCF A", "\u65b0\u9510 1\u533a Top"], kind: "conference" },
+  { venue: "International ACM SIGIR Conference on Research and Development in Information Retrieval", expected: ["CCF A"], kind: "conference" },
+  { venue: "International Conference on Software Engineering", expected: ["CCF A", "\u65b0\u9510 1\u533a Top"], kind: "conference" },
+  { venue: "\u4e2d\u56fd\u793e\u4f1a\u79d1\u5b66", expected: ["CSSCI \u6765\u6e90", "\u5317\u5927\u6838\u5fc3"], kind: "chinese" },
+  { venue: "\u91d1\u5c5e\u5b66\u62a5", expected: ["\u5317\u5927\u6838\u5fc3", "EI"], kind: "chinese" },
+  { venue: "\u7cfb\u7edf\u5de5\u7a0b\u7406\u8bba\u4e0e\u5b9e\u8df5", expected: ["CSSCI \u6765\u6e90", "\u5317\u5927\u6838\u5fc3", "EI"], kind: "chinese" }
+];
+for (let index = 0; index < diverseVenueCases.length; index += 1) {
+  const testCase = diverseVenueCases[index];
+  let url;
+  let html;
+  if (testCase.kind === "journal") {
+    url = canonicalManifestUrl(publisherPatterns[index % publisherPatterns.length]);
+    html = '<main><div class="result-item" id="venue-diversity"><h2><a href="/article/diversity">Diverse journal paper</a></h2><div class="publication-title">' + testCase.venue + '</div></div></main>';
+  } else if (testCase.kind === "conference") {
+    url = "https://www.semanticscholar.org/search?q=venue-diversity-" + index;
+    html = '<div data-testid="paper-row" id="venue-diversity"><a href="/paper/diversity-' + index + '">Diverse conference paper</a><span class="cl-paper-venue">' + testCase.venue + '</span></div>';
+  } else {
+    url = "https://scholar.google.com/scholar?q=venue-diversity-" + index;
+    html = '<div class="gs_r gs_or gs_scl" id="venue-diversity"><div class="gs_ri"><h3 class="gs_rt"><a>Diverse Chinese journal paper</a></h3><div class="gs_a">A Author - ' + testCase.venue + ', 2025 - example.cn</div></div></div>';
+  }
+  const page = await run(url, html, 260);
+  const labels = [...page.dom.window.document.querySelectorAll("#venue-diversity .rank-assistant-badge")].map((node) => node.textContent);
+  for (const expected of testCase.expected) {
+    assert.ok(labels.includes(expected), testCase.venue + " missing " + expected + ": " + JSON.stringify(labels));
+  }
+}
 console.log(JSON.stringify({
   dblp: { labels: knownLabels, controls: doc.querySelectorAll(".rank-assistant-badge, .rank-assistant-venue-detail").length, tooltips: doc.querySelectorAll("#rank-assistant-shared-tooltip").length },
   scholar: { labels: scholarLabels, catalogFetches: scholar.catalogFetches },
   recovered: { apiFetches: recovered.apiFetches, entries: recovered.dom.window.document.querySelectorAll("li.entry").length },
-  stress: { entries: 100, catalogFetches: stress.catalogFetches, tooltips: stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, elapsedMs: stressMs }
+  stress: { entries: 100, catalogFetches: stress.catalogFetches, tooltips: stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, elapsedMs: stressMs },
+  manifestMatrix: { patterns: manifestMatrix.length, publisherSearchPages: publisherPatterns.length, publisherDetailPages: publisherPatterns.length },
+  venueDiversity: { cases: diverseVenueCases.length, journals: diverseVenueCases.filter((item) => item.kind === "journal").length, conferences: diverseVenueCases.filter((item) => item.kind === "conference").length, chineseJournals: diverseVenueCases.filter((item) => item.kind === "chinese").length }
 }, null, 2));

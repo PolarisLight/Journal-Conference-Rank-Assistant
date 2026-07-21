@@ -1,0 +1,339 @@
+{
+  "extensionName": {
+    "message": "期刊会议等级与分区助手",
+    "description": "extensionName"
+  },
+  "extensionDescription": {
+    "message": "在学术检索结果旁显示期刊和会议的等级、分区、收录及影响力信息，并支持页面内筛选。",
+    "description": "extensionDescription"
+  },
+  "actionTitle": {
+    "message": "期刊会议等级与分区助手",
+    "description": "actionTitle"
+  },
+  "ui_journal_conference_rank_assistant": {
+    "message": "期刊会议等级与分区助手"
+  },
+  "ui_ccf_cas_xinrui_jcr_warning_chinese_core_ei": {
+    "message": "CCF · 中科院 · 新锐 · JCR · 预警 · 中文核心 · EI"
+  },
+  "ui_enable_extension": {
+    "message": "启用扩展"
+  },
+  "ui_local_data_is_ready": {
+    "message": "本地数据已就绪"
+  },
+  "ui_official_updates_have_not_been_checked": {
+    "message": "尚未检查官方更新"
+  },
+  "ui_visible_badges": {
+    "message": "显示标签"
+  },
+  "ui_cas_partitions": {
+    "message": "中科院分区"
+  },
+  "ui_xinrui_partitions": {
+    "message": "新锐分区"
+  },
+  "ui_current_warning": {
+    "message": "当前预警"
+  },
+  "ui_jcr_quartile": {
+    "message": "JCR 分区"
+  },
+  "ui_impact_factor": {
+    "message": "影响因子"
+  },
+  "ui_cas_top": {
+    "message": "中科院 Top"
+  },
+  "ui_pku_core": {
+    "message": "北大核心"
+  },
+  "ui_interface_language": {
+    "message": "界面语言"
+  },
+  "ui_choose_chinese_or_english_explicitly": {
+    "message": "明确选择中文或 English"
+  },
+  "ui_panel_theme": {
+    "message": "浮层颜色"
+  },
+  "ui_independent_of_the_paper_website_theme": {
+    "message": "不受论文网站是否支持深色模式影响"
+  },
+  "ui_light": {
+    "message": "浅色"
+  },
+  "ui_dark": {
+    "message": "深色"
+  },
+  "ui_follow_system": {
+    "message": "跟随系统"
+  },
+  "ui_badge_palette": {
+    "message": "标签色系"
+  },
+  "ui_switch_the_complete_badge_palette": {
+    "message": "一次切换整套标签配色"
+  },
+  "ui_soft": {
+    "message": "柔和彩"
+  },
+  "ui_vivid": {
+    "message": "鲜明色"
+  },
+  "ui_color_blind_friendly": {
+    "message": "色盲友好"
+  },
+  "ui_local_data": {
+    "message": "本地数据"
+  },
+  "ui_journals_conferences": {
+    "message": "期刊/会议"
+  },
+  "ui_cas": {
+    "message": "中科院"
+  },
+  "ui_not_loaded": {
+    "message": "未加载"
+  },
+  "ui_data_updates": {
+    "message": "数据更新"
+  },
+  "ui_check_weekly": {
+    "message": "每周检查"
+  },
+  "ui_check_now": {
+    "message": "立即检查"
+  },
+  "ui_sync_database": {
+    "message": "同步数据库"
+  },
+  "ui_clear_journal_cache": {
+    "message": "清除期刊缓存"
+  },
+  "ui_not_checked": {
+    "message": "尚未检查"
+  },
+  "ui_data_news": {
+    "message": "数据动态"
+  },
+  "ui_loading": {
+    "message": "正在读取…"
+  },
+  "ui_hover_over_badges_and_venue_details_for_explanations_ranking_matches_run_locally_missing_publishers_": {
+    "message": "鼠标放到标签和“期刊详情”上可查看解释；等级匹配在本地完成，缺失发行商时才按 ISSN 查询 Crossref。"
+  },
+  "ui_new_official_data_is_available": {
+    "message": "发现新的官方数据"
+  },
+  "ui_a_newer_data_package_is_recommended": {
+    "message": "建议获取新版安装包"
+  },
+  "ui_current_data_matches_the_latest_baseline": {
+    "message": "当前数据已是最新基线"
+  },
+  "ui_the_official_database_is_current": {
+    "message": "官方数据库已是最新版本"
+  },
+  "ui_unable_to_check_for_updates": {
+    "message": "暂时无法检查更新"
+  },
+  "ui_the_local_database_remains_available": {
+    "message": "当前本地数据仍可正常使用"
+  },
+  "ui_download_and_replace_database": {
+    "message": "下载并替换数据库"
+  },
+  "ui_resync_database": {
+    "message": "重新同步数据库"
+  },
+  "ui_no_news_available": {
+    "message": "暂无动态"
+  },
+  "ui_failed_to_load_news": {
+    "message": "动态读取失败"
+  },
+  "ui_checking": {
+    "message": "检查中…"
+  },
+  "ui_downloading_and_rebuilding": {
+    "message": "下载并重建中…"
+  },
+  "ui_replaced_refresh_pages_to_apply": {
+    "message": "已替换，刷新页面生效"
+  },
+  "ui_cleared": {
+    "message": "已清除"
+  },
+  "ui_filter_papers": {
+    "message": "筛选论文"
+  },
+  "ui_paper_filters": {
+    "message": "论文筛选"
+  },
+  "ui_click_to_open_drag_to_move": {
+    "message": "点击打开，可拖动"
+  },
+  "ui_select_indexes_then_choose_the_levels_or_types_to_keep": {
+    "message": "先选择索引，再选择需要保留的等级或类型。"
+  },
+  "ui_close_filters": {
+    "message": "关闭筛选"
+  },
+  "ui_indexes": {
+    "message": "索引"
+  },
+  "ui_within_one_index_or_between_indexes_and": {
+    "message": "同一索引内为“或”，不同索引之间为“且”"
+  },
+  "ui_clear_filters": {
+    "message": "清空筛选"
+  },
+  "ui_no_filters_enabled_showing_all_papers": {
+    "message": "未启用筛选，显示全部论文。"
+  },
+  "ui_hide_currently_warned_journals": {
+    "message": "隐藏当前预警期刊"
+  },
+  "ui_uses_only_the_latest_2025_list_bundled_with_the_extension": {
+    "message": "仅按插件所载的 2025 年最新名单隐藏"
+  },
+  "ui_source": {
+    "message": "来源"
+  },
+  "ui_extended": {
+    "message": "扩展"
+  },
+  "ui_journal": {
+    "message": "期刊"
+  },
+  "ui_conference": {
+    "message": "会议"
+  },
+  "ui_proceedings": {
+    "message": "会议论文集"
+  },
+  "ui_other_source": {
+    "message": "其他来源"
+  },
+  "ui_included": {
+    "message": "入选"
+  },
+  "ui_rank": {
+    "message": "等级"
+  },
+  "ui_type": {
+    "message": "类型"
+  },
+  "ui_field": {
+    "message": "领域"
+  },
+  "ui_year": {
+    "message": "年份"
+  },
+  "ui_canonical_name": {
+    "message": "规范名称"
+  },
+  "ui_publisher": {
+    "message": "发行商"
+  },
+  "ui_primary_topics": {
+    "message": "主要方向"
+  },
+  "ui_information_source": {
+    "message": "信息来源"
+  },
+  "ui_looking_up": {
+    "message": "查询中…"
+  },
+  "ui_none": {
+    "message": "无"
+  },
+  "ui_no_topic_information": {
+    "message": "暂无分类信息"
+  },
+  "ui_yes": {
+    "message": "是"
+  },
+  "ui_no": {
+    "message": "否"
+  },
+  "ui_subject": {
+    "message": "学科"
+  },
+  "ui_broad_field_zone": {
+    "message": "大类分区"
+  },
+  "ui_quartile": {
+    "message": "分区"
+  },
+  "ui_index_type": {
+    "message": "收录类型"
+  },
+  "ui_edition": {
+    "message": "版本"
+  },
+  "ui_source_type": {
+    "message": "来源类型"
+  },
+  "ui_data_date": {
+    "message": "数据日期"
+  },
+  "ui_catalog": {
+    "message": "目录"
+  },
+  "ui_list_year": {
+    "message": "名单年份"
+  },
+  "ui_warning_reason": {
+    "message": "预警原因"
+  },
+  "ui_local_catalog": {
+    "message": "本地目录"
+  },
+  "ui_local_catalog_crossref": {
+    "message": "本地目录 + Crossref"
+  },
+  "ui_local_catalog_crossref_cache": {
+    "message": "本地目录 + Crossref 缓存"
+  },
+  "ui_ccf_recommended_catalog": {
+    "message": "CCF 推荐目录"
+  },
+  "ui_no_ccf_rank_matched": {
+    "message": "未匹配 CCF 等级"
+  },
+  "ui_cas_top_journal": {
+    "message": "中科院 Top 期刊"
+  },
+  "ui_xinrui_academic_partitions": {
+    "message": "新锐学术分区"
+  },
+  "ui_web_of_science_indexing": {
+    "message": "Web of Science 收录"
+  },
+  "ui_chinese_social_sciences_citation_index": {
+    "message": "中文社会科学引文索引"
+  },
+  "ui_a_guide_to_the_core_journals_of_china": {
+    "message": "中文核心期刊要目总览"
+  },
+  "ui_ei_compendex_source": {
+    "message": "Ei Compendex 收录来源"
+  },
+  "ui_source_details": {
+    "message": "来源详情"
+  },
+  "ui_journal_details": {
+    "message": "期刊详情"
+  },
+  "ui_conference_details": {
+    "message": "会议详情"
+  },
+  "ui_retry": {
+    "message": "重试"
+  }
+}
+

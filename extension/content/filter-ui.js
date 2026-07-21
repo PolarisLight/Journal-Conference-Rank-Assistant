@@ -1,6 +1,8 @@
 (async function () {
   "use strict";
 
+  const I18N = globalThis.RankAssistantI18n;
+
   const OPTIONS = {
     ccf: ["CCF", [["A", "A"], ["B", "B"], ["C", "C"], ["None", "None"]]],
     jcr: ["JCR", [["Q1", "Q1"], ["Q2", "Q2"], ["Q3", "Q3"], ["Q4", "Q4"]]],
@@ -11,13 +13,17 @@
     ei: ["EI", [["Journal", "期刊"], ["Proceeding", "会议论文集"], ["Other", "其他来源"]]],
     pku: ["北大核心", [["included", "入选"]]]
   };
-  const DEFAULTS = { enabled: true, colorTheme: "light", resultFilters: { indexes: [], values: {} }, hideWarnedJournals: false, filterButtonPosition: null, filterGuideSeen: false };
+  const DEFAULTS = { enabled: true, language: "zh-CN", colorTheme: "light", resultFilters: { indexes: [], values: {} }, hideWarnedJournals: false, filterButtonPosition: null, filterGuideSeen: false };
   const SIZE = 52;
   const GAP = 14;
   const darkMode = matchMedia("(prefers-color-scheme: dark)");
   let settings = { ...DEFAULTS };
   let host, button, panel, indexesElement, valuesElement, warningElement, countElement, guideElement, drag;
   let suppressClick = false;
+
+  function tr(value) {
+    return I18N.exact(value, settings.language);
+  }
 
   function normalize(value) {
     const indexes = Array.isArray(value?.indexes) ? [...new Set(value.indexes.filter((key) => OPTIONS[key]))] : [];
@@ -70,7 +76,7 @@
     valuesElement.replaceChildren();
 
     for (const [key, [label]] of Object.entries(OPTIONS)) {
-      indexesElement.append(makeCheckbox(label, filters.indexes.includes(key), (checked) => {
+      indexesElement.append(makeCheckbox(tr(label), filters.indexes.includes(key), (checked) => {
         const next = normalize(settings.resultFilters);
         if (checked && !next.indexes.includes(key)) next.indexes.push(key);
         if (!checked) next.indexes = next.indexes.filter((item) => item !== key);
@@ -83,19 +89,19 @@
     if (!filters.indexes.length) {
       const empty = document.createElement("p");
       empty.className = "empty";
-      empty.textContent = "未启用筛选，显示全部论文。";
+      empty.textContent = tr("未启用筛选，显示全部论文。");
       valuesElement.append(empty);
     }
     for (const key of filters.indexes) {
       const [label, options] = OPTIONS[key];
       const fieldset = document.createElement("fieldset");
       const legend = document.createElement("legend");
-      legend.textContent = label;
+      legend.textContent = tr(label);
       fieldset.append(legend);
       const choices = document.createElement("div");
       choices.className = "choices";
       for (const [id, optionLabel] of options) {
-        choices.append(makeCheckbox(optionLabel, filters.values[key].includes(id), (checked) => {
+        choices.append(makeCheckbox(tr(optionLabel), filters.values[key].includes(id), (checked) => {
           const next = normalize(settings.resultFilters);
           const selected = new Set(next.values[key]);
           checked ? selected.add(id) : selected.delete(id);
@@ -108,20 +114,21 @@
       valuesElement.append(fieldset);
     }
 
-    const warningChoice = makeCheckbox("隐藏当前预警期刊", Boolean(settings.hideWarnedJournals), (checked) => {
+    const warningChoice = makeCheckbox(tr("隐藏当前预警期刊"), Boolean(settings.hideWarnedJournals), (checked) => {
       save({ hideWarnedJournals: checked });
       render();
     });
     const warningHelp = document.createElement("small");
-    warningHelp.textContent = "仅按插件所载的 2025 年最新名单隐藏";
+    warningHelp.textContent = tr("仅按插件所载的 2025 年最新名单隐藏");
     warningElement.replaceChildren(warningChoice, warningHelp);
 
     const count = filters.indexes.reduce((sum, key) => sum + filters.values[key].length, 0) + (settings.hideWarnedJournals ? 1 : 0);
     countElement.textContent = count ? String(count) : "";
     countElement.hidden = !count;
     button.classList.toggle("active", Boolean(count));
-    button.setAttribute("aria-label", count ? `论文筛选，已选 ${count} 项` : "论文筛选");
+    button.setAttribute("aria-label", count ? tr(`论文筛选，已选 ${count} 项`) : tr("论文筛选"));
     guideElement.hidden = Boolean(settings.filterGuideSeen);
+    I18N.localizeDom(host.shadowRoot, settings.language);
   }
 
   function viewport() {
@@ -238,7 +245,7 @@
     button.type = "button";
     const glyph = document.createElement("span");
     glyph.id = "glyph";
-    glyph.textContent = "筛";
+    glyph.textContent = I18N.normalize(settings.language) === "en" ? "F" : "筛";
     button.setAttribute("aria-expanded", "false");
     button.setAttribute("aria-controls", "panel");
     countElement = document.createElement("span");
@@ -276,6 +283,7 @@
     button.addEventListener("pointercancel", pointerUp);
     shadow.append(style, button, panel);
     document.documentElement.append(host);
+    I18N.localizeDom(shadow, settings.language);
     syncTheme();
     applyPosition();
     render();
@@ -289,7 +297,15 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     for (const key of Object.keys(DEFAULTS)) if (changes[key]) settings[key] = changes[key].newValue ?? DEFAULTS[key];
-    if (changes.enabled) settings.enabled ? build() : remove();
+    if (changes.enabled) settings.enabled ? buildWhenRelevant() : remove();
+    if (changes.language && settings.enabled) {
+      settings.language = I18N.normalize(settings.language);
+      I18N.ready(settings.language).then(() => {
+        remove();
+        buildWhenRelevant();
+      });
+      return;
+    }
     if (!host) return;
     if (changes.colorTheme) syncTheme();
     if (changes.resultFilters || changes.hideWarnedJournals || changes.filterGuideSeen) render();
@@ -311,8 +327,26 @@
   darkMode.addEventListener?.("change", syncTheme);
   darkMode.addListener?.(syncTheme);
 
-  chrome.storage.local.get(DEFAULTS, (stored) => {
-    settings = { ...DEFAULTS, ...stored, resultFilters: normalize(stored.resultFilters) };
-    build();
+  let relevanceObserver = null;
+  function buildWhenRelevant() {
+    if (!settings.enabled || host) return;
+    if (document.documentElement.dataset.paperRankHasResults === "1") {
+      relevanceObserver?.disconnect();
+      relevanceObserver = null;
+      build();
+      return;
+    }
+    if (relevanceObserver) return;
+    relevanceObserver = new MutationObserver(() => buildWhenRelevant());
+    relevanceObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-paper-rank-has-results"]
+    });
+  }
+
+  chrome.storage.local.get(DEFAULTS, async (stored) => {
+    settings = { ...DEFAULTS, ...stored, language: I18N.normalize(stored.language), resultFilters: normalize(stored.resultFilters) };
+    await I18N.ready(settings.language);
+    buildWhenRelevant();
   });
 })();

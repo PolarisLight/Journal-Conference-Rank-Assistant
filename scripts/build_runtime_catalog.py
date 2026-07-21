@@ -71,22 +71,26 @@ def compact_record(item: dict) -> list:
 def main() -> None:
     source_records = json.loads(SOURCE.read_text(encoding="utf-8"))
     records = [compact_record(item) for item in source_records]
-    aliases: dict[str, int] = {}
-    abbreviations: dict[str, int] = {}
+    alias_owners: dict[str, set[int]] = defaultdict(set)
+    abbreviation_owners: dict[str, set[int]] = defaultdict(set)
 
     for index, item in enumerate(source_records):
         for alias in [item.get("title", ""), *item.get("aliases", [])]:
             key = norm(alias)
             if not key:
                 continue
-            current = aliases.get(key)
-            if current is None or item["score"] > source_records[current]["score"]:
-                aliases[key] = index
+            alias_owners[key].add(index)
             if " " in key:
                 abbreviated = abbreviation_key(key)
-                current = abbreviations.get(abbreviated)
-                if current is None or item["score"] > source_records[current]["score"]:
-                    abbreviations[abbreviated] = index
+                if abbreviated:
+                    abbreviation_owners[abbreviated].add(index)
+
+    aliases = {key: next(iter(owners)) for key, owners in alias_owners.items() if len(owners) == 1}
+    abbreviations = {key: next(iter(owners)) for key, owners in abbreviation_owners.items() if len(owners) == 1}
+    ambiguous_alias_keys = {key for key, owners in alias_owners.items() if len(owners) > 1}
+    ambiguous_abbreviation_keys = {key for key, owners in abbreviation_owners.items() if len(owners) > 1}
+    ambiguous_aliases = len(ambiguous_alias_keys)
+    ambiguous_abbreviations = len(ambiguous_abbreviation_keys)
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     full_payloads = {
@@ -104,6 +108,8 @@ def main() -> None:
 
     shard_aliases: dict[str, dict[str, int]] = defaultdict(dict)
     shard_abbreviations: dict[str, dict[str, int]] = defaultdict(dict)
+    shard_ambiguous_aliases: dict[str, set[str]] = defaultdict(set)
+    shard_ambiguous_abbreviations: dict[str, set[str]] = defaultdict(set)
     shard_members: dict[str, set[int]] = defaultdict(set)
 
     for key, index in aliases.items():
@@ -118,23 +124,34 @@ def main() -> None:
 
     shard_files = []
     total_bytes = 0
-    for shard in sorted(shard_members):
+
+    for key in ambiguous_alias_keys:
+        shard_ambiguous_aliases[shard_key(key)].add(key)
+
+    for key in ambiguous_abbreviation_keys:
+        shard_ambiguous_abbreviations[shard_key(key)].add(key)
+
+    all_shards = set(shard_members) | set(shard_ambiguous_aliases) | set(shard_ambiguous_abbreviations)
+
+    for shard in sorted(all_shards):
         members = sorted(shard_members[shard])
         local_index = {global_index: local for local, global_index in enumerate(members)}
         payload = {
             "r": [records[index] for index in members],
             "a": {key: local_index[index] for key, index in shard_aliases[shard].items()},
             "b": {key: local_index[index] for key, index in shard_abbreviations[shard].items()},
+            "x": sorted(shard_ambiguous_aliases[shard]),
+            "y": sorted(shard_ambiguous_abbreviations[shard]),
         }
         filename = f"catalog-shard-{shard}.private.json"
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         (DATA_DIR / filename).write_text(encoded, encoding="utf-8")
         shard_files.append(filename)
         total_bytes += len(encoded.encode("utf-8"))
-
     print(
         f"Built {len(records):,} records, {len(aliases):,} aliases, "
-        f"{len(abbreviations):,} abbreviations in {len(shard_files)} shards "
+        f"{len(abbreviations):,} abbreviations in {len(shard_files)} shards; "
+        f"refused {ambiguous_aliases:,} alias and {ambiguous_abbreviations:,} abbreviation conflicts "
         f"({total_bytes / 1024:.1f} KiB total)"
     )
 
