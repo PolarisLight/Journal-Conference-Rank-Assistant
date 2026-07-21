@@ -28,6 +28,7 @@
 - 可拖动的筛选按钮，支持按索引、分区和等级保留论文
 - 浅色、深色、跟随系统三种浮层主题
 - 柔和彩、鲜明色、色盲友好三套标签色系，默认使用鲜明色
+- 界面语言可在简体中文与 English 之间明确切换
 
 <p align=center><img src=submission/v0.11.0/promo-440x280.png width=440 alt=插件标签与筛选界面图></p>
 
@@ -49,18 +50,20 @@
 
 ## 支持网页
 
-新增公开检索页：AMiner 与 Baidu Scholar（百度学术）。ResearchGate 仅在公开论文页提供标准期刊元数据时显示标签。
+Google Scholar（搜索结果与个人主页） · DBLP 及其官方镜像 · Semantic Scholar · arXiv · OpenAlex · PubMed · AMiner · 百度学术 · 中国知网公开检索 · 万方数据公开检索 · ResearchGate 公开论文页 · 常见期刊与出版社平台（Nature/Springer、ScienceDirect、IEEE Xplore、ACM DL、Wiley 等）
 
-Google Scholar（搜索结果与个人主页） · DBLP 及其官方镜像 · Semantic Scholar · arXiv · OpenAlex · PubMed · 中国知网公开检索 · 万方数据公开检索 · 常见期刊与出版社平台（Nature/Springer、ScienceDirect、IEEE Xplore、ACM DL、Wiley 等）
+ResearchGate 仅在公开论文页提供标准期刊元数据时显示标签。
 
 ## 安装
 
 | 浏览器 | 安装包 | 说明 |
 | --- | --- | --- |
-| Chrome / Chromium | [在 Chrome Web Store 安装](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | Google 官方商店版本，可永久安装并接收自动更新 |
-| Firefox | [在 Firefox Add-ons 安装](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Mozilla 官方签名版本，可永久安装并接收自动更新 |
+| Chrome / Chromium | [在 Chrome Web Store 安装](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | 商店当前为 0.11.1；0.11.2 正在审核 |
+| Firefox | [在 Firefox Add-ons 安装](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | 0.11.2 已发布，Mozilla 官方签名并支持自动更新 |
 
 Chrome 与 Firefox 版本均已在对应浏览器的官方扩展商店正式上架。
+
+需要直接下载安装包时，可前往 [GitHub Release v0.11.2](https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases/tag/v0.11.2)。
 
 ## 支持项目
 

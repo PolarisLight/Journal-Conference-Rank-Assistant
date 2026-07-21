@@ -526,7 +526,8 @@ h3 {
 
 .support-strip span + span {
   border-left: 1px solid var(--line);
-}.support-strip span:nth-child(5) {
+}
+.support-strip span:nth-child(4n + 1) {
   border-left: 0;
 }
 

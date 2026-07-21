@@ -28,6 +28,7 @@ The extension places rank badges beside paper titles and explains each badge on 
 - A draggable page filter for keeping papers by index, partition, or rank
 - Light, dark, and system-following panel themes
 - Soft, vivid, and color-blind-friendly badge palettes, with vivid selected by default
+- An explicit interface language switch between Simplified Chinese and English
 
 <p align=center><img src=submission/v0.11.0/promo-440x280-en.png width=440 alt=Extension-interface></p>
 
@@ -49,18 +50,20 @@ The local catalog contains **35,093** journal and conference records. SCI, SCIE,
 
 ## Supported websites
 
-New public search coverage: AMiner and Baidu Scholar. ResearchGate is annotated only when a public publication page exposes standard journal metadata.
+Google Scholar search and author profiles · DBLP and its official mirrors · Semantic Scholar · arXiv · OpenAlex · PubMed · AMiner · Baidu Scholar · CNKI public search · Wanfang Data public search · public ResearchGate publication pages · major journal and publisher platforms including Nature/Springer, ScienceDirect, IEEE Xplore, ACM DL, and Wiley
 
-Google Scholar search and author profiles · DBLP and its official mirrors · Semantic Scholar · arXiv · OpenAlex · PubMed · CNKI public search · Wanfang Data public search · major journal and publisher platforms including Nature/Springer, ScienceDirect, IEEE Xplore, ACM DL, and Wiley
+ResearchGate is annotated only when a public publication page exposes standard journal metadata.
 
 ## Install
 
 | Browser | Package | Notes |
 | --- | --- | --- |
-| Chrome / Chromium | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | Official store edition, with permanent installation and automatic updates |
-| Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Officially signed by Mozilla, with permanent installation and automatic updates |
+| Chrome / Chromium | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | The store currently offers 0.11.1; 0.11.2 is under review |
+| Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Version 0.11.2 is live, signed by Mozilla, with automatic updates |
 
 The Chrome and Firefox editions are now officially available from their respective browser extension stores.
+
+For direct package downloads, see [GitHub Release v0.11.2](https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases/tag/v0.11.2).
 
 ## Support the project
 
