@@ -69,6 +69,9 @@ For direct package downloads, see [GitHub Release v0.11.2](https://github.com/Po
 
 The extension will remain free and ad-free. If it saves you time, you can support data curation, browser compatibility testing, and ongoing maintenance through WeChat Pay or Alipay. Sponsorship does not unlock extra features and is not a purchase or subscription. Please verify the recipient name before paying.
 
+<details>
+<summary>View WeChat Pay and Alipay QR codes</summary>
+
 <table>
   <tr>
     <th align="center">WeChat Pay</th>
@@ -79,6 +82,8 @@ The extension will remain free and ad-free. If it saves you time, you can suppor
     <td align="center"><img src="docs/assets/support-alipay.jpg" width="280" alt="Alipay payment QR code"></td>
   </tr>
 </table>
+
+</details>
 
 The same options are also available in the [support section on the project website](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support).
 

@@ -69,6 +69,9 @@ Chrome 与 Firefox 版本均已在对应浏览器的官方扩展商店正式上�
 
 插件会继续保持免费、无广告。如果它为你的论文检索节省了时间，可以通过微信或支付宝自愿支持数据整理、浏览器兼容测试与项目维护。赞助不会解锁额外功能，也不构成购买或订阅。支付前请核对收款人昵称。
 
+<details>
+<summary>查看微信与支付宝收款码</summary>
+
 <table>
   <tr>
     <th align="center">微信支付</th>
@@ -79,6 +82,8 @@ Chrome 与 Firefox 版本均已在对应浏览器的官方扩展商店正式上�
     <td align="center"><img src="docs/assets/support-alipay.jpg" width="280" alt="支付宝收款二维码"></td>
   </tr>
 </table>
+
+</details>
 
 也可以在[项目主页的支持区](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#support)查看。
 

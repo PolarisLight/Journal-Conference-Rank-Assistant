@@ -194,6 +194,75 @@ footer {
   font-size: 0.84rem;
 }
 
+.support-disclosure {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.support-disclosure summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 86px;
+  padding: 18px 20px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.support-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.support-disclosure summary:hover {
+  background: var(--surface-soft);
+}
+
+.support-disclosure summary:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 48%, transparent);
+  outline-offset: -3px;
+}
+
+.support-disclosure[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.support-disclosure-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.support-disclosure-copy strong {
+  font-size: 0.96rem;
+}
+
+.support-disclosure-copy small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.support-disclosure-action {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.support-disclosure-action-open,
+.support-disclosure[open] .support-disclosure-action-closed {
+  display: none;
+}
+
+.support-disclosure[open] .support-disclosure-action-open {
+  display: inline;
+}
+
+.support-disclosure .support-payments {
+  padding: 18px;
+}
+
 .support-payments {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
