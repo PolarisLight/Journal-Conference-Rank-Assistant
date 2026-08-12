@@ -66,6 +66,8 @@ assert.equal(dom.window.document.getElementById("xinruiVersion").textContent, "2
 assert.equal(dom.window.document.getElementById("warningVersion").textContent, "2025");
 assert.equal(dom.window.document.getElementById("showXinrui").checked, true);
 assert.equal(dom.window.document.getElementById("showWarning").checked, true);
+assert.equal(dom.window.document.getElementById("showUtd24").checked, true);
+assert.equal(dom.window.document.getElementById("showFt50").checked, true);
 assert.match(dom.window.document.getElementById("installUpdates").textContent, /已替换/);
 console.log(JSON.stringify({ theme: saved.colorTheme, palette: saved.colorPalette, installMessage: true }));
 assert.equal(dom.window.document.querySelector(".filter-card"), null);

@@ -23,6 +23,8 @@
   --paper-rank-pku: #985070;
   --paper-rank-ei: #16818a;
   --paper-rank-warning: #a13b35;
+  --paper-rank-utd24: #7254a3;
+  --paper-rank-ft50: #a6532f;
 }
 
 :root[data-paper-rank-palette="vivid"] {
@@ -49,6 +51,8 @@
   --paper-rank-pku: #c11574;
   --paper-rank-ei: #007f8f;
   --paper-rank-warning: #c5152f;
+  --paper-rank-utd24: #7f3fbf;
+  --paper-rank-ft50: #d35400;
 }
 
 /* Okabe-Ito inspired hues, darkened where needed for small-text contrast. */
@@ -76,6 +80,8 @@
   --paper-rank-pku: #a63d6f;
   --paper-rank-ei: #246f78;
   --paper-rank-warning: #9f3e72;
+  --paper-rank-utd24: #0072b2;
+  --paper-rank-ft50: #d55e00;
 }
 
 .rank-assistant-badge[data-kind="ccf"][data-level="a"] { --pr-color: var(--paper-rank-ccf-a); }
@@ -101,6 +107,8 @@
 .rank-assistant-badge[data-kind="pku"] { --pr-color: var(--paper-rank-pku); }
 .rank-assistant-badge[data-kind="ei"] { --pr-color: var(--paper-rank-ei); }
 .rank-assistant-badge[data-kind="warning"] { --pr-color: var(--paper-rank-warning); }
+.rank-assistant-badge[data-kind="utd24"] { --pr-color: var(--paper-rank-utd24); }
+.rank-assistant-badge[data-kind="ft50"] { --pr-color: var(--paper-rank-ft50); }
 
 :root[data-paper-rank-palette="vivid"] .rank-assistant-badge {
   border-color: color-mix(in srgb, var(--pr-color) 58%, transparent);

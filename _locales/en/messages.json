@@ -334,6 +334,11 @@
   },
   "ui_retry": {
     "message": "Retry"
+  },
+  "ui_ut_dallas_top_100_business_school_research_rankings_24": {
+    "message": "The 24-journal set used by the UT Dallas Top 100 Business School Research Rankings."
+  },
+  "ui_financial_times_ft50": {
+    "message": "The FT50 journal list used in the Financial Times business school research ranking."
   }
 }
-

@@ -15,6 +15,8 @@
     showCssci: true,
     showPku: true,
     showEi: true,
+    showUtd24: true,
+    showFt50: true,
     showXinrui: true,
     showWarning: true,
     hideWarnedJournals: false,
@@ -125,8 +127,9 @@
     if (host === "s.wanfangdata.com.cn") return "wanfang";
     if (host === "www.aminer.cn" || host === "aminer.cn") return "aminer";
     if (host === "xueshu.baidu.com") return "baidu-scholar";
-    if (/(^|\.)(nature\.com|springer\.com|sciencedirect\.com|wiley\.com|tandfonline\.com|cambridge\.org|mdpi\.com|frontiersin\.org|biomedcentral\.com|emerald\.com|science\.org|cell\.com|jamanetwork\.com|nejm\.org|thelancet\.com|bmj\.com|karger\.com|degruyter\.com|hindawi\.com|annualreviews\.org|royalsocietypublishing\.org)$/.test(host)
-      || ["ieeexplore.ieee.org", "dl.acm.org", "journals.sagepub.com", "academic.oup.com", "journals.plos.org", "journals.aps.org", "pubs.aip.org", "iopscience.iop.org", "pubs.acs.org", "pubs.rsc.org", "journals.lww.com", "epubs.siam.org", "journals.asm.org", "journals.physiology.org", "www.researchgate.net", "researchgate.net"].includes(host)) {
+    if (host === "www.researchgate.net" || host === "researchgate.net") return "researchgate";
+    if (/(^|\.)(nature\.com|springer\.com|sciencedirect\.com|wiley\.com|tandfonline\.com|cambridge\.org|mdpi\.com|frontiersin\.org|biomedcentral\.com|emerald\.com|emeraldgrouppublishing\.com|myscp\.org|science\.org|cell\.com|jamanetwork\.com|nejm\.org|thelancet\.com|bmj\.com|karger\.com|degruyter\.com|hindawi\.com|annualreviews\.org|royalsocietypublishing\.org)$/.test(host)
+      || ["ieeexplore.ieee.org", "dl.acm.org", "journals.sagepub.com", "academic.oup.com", "journals.plos.org", "journals.aps.org", "pubs.aip.org", "iopscience.iop.org", "pubs.acs.org", "pubs.rsc.org", "journals.lww.com", "epubs.siam.org", "journals.asm.org", "journals.physiology.org"].includes(host)) {
       return "publisher";
     }
     return "unknown";
@@ -152,6 +155,7 @@
     "a[href*='/science/article/']",
     "a[href*='/content/']"
   ].join(", ");
+  const RESEARCHGATE_RESULT_SELECTOR = "[data-testid*='publication'], .publication-item, .nova-legacy-v-publication-item, .research-item, .result-item, [class*='publication-item'], a[href*='/publication/']";
 
   function isDblp() {
     return siteKind() === "dblp";
@@ -169,6 +173,7 @@
     if (site === "wanfang") return '.normal-list-item, .result-item, .paper-item, a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]';
     if (site === "aminer") return '.paper-item, a.title-link[href^="/pub/"]';
     if (site === "baidu-scholar") return '.paper-wrap.result, .sc_default_result, a[href*="/usercenter/paper/show"]';
+    if (site === "researchgate") return RESEARCHGATE_RESULT_SELECTOR;
     if (site === "publisher") return PUBLISHER_RESULT_SELECTOR + ", " + PUBLISHER_TITLE_LINK_SELECTOR;
     return "";
   }
@@ -222,7 +227,29 @@
       const direct = document.querySelectorAll('.paper-wrap.result, .sc_default_result');
       return direct.length ? direct : containersFromTitleLinks('a[href*="/usercenter/paper/show"]', '.paper-wrap, .sc_default_result, .result, article, li');
     }
+    if (site === "researchgate") {
+      if (/\/publication\//.test(location.pathname)) {
+        const main = document.querySelector("main, [role='main'], .nova-legacy-l-page__main");
+        if (main) return [main];
+        return [document.body];
+      }
+      const linked = containersFromTitleLinks("a[href*='/publication/']", "article, li, [data-testid*='publication'], [class*='publication']");
+      if (linked.length) return topLevelContainers(linked);
+      return topLevelContainers(document.querySelectorAll(".publication-item, .nova-legacy-v-publication-item, .research-item, .result-item, [class*='publication-item']"));
+    }
     if (site === "publisher") {
+      // A document page is one logical item.  Do this before looking for
+      // related-article cards, otherwise publisher sidebars win the scan.
+      if (isPublisherDocumentPage()) {
+        return [document.querySelector("main article, article[role='main'], main, [role='main']") || document.body];
+      }
+      if (isJournalLandingPage()) {
+        const title = journalHeaderNode();
+        if (title?.parentElement) return [title.parentElement];
+        // Some journal homes use a cover/logo instead of textual h1 markup.
+        // Keep one stable container so the ISSN fallback can still render ranks.
+        return [document.querySelector("main, header, [role='main']") || document.body];
+      }
       const direct = document.querySelectorAll(PUBLISHER_RESULT_SELECTOR);
       if (direct.length) return direct;
       const linked = containersFromTitleLinks(
@@ -231,9 +258,12 @@
       );
       if (linked.length) return linked;
       const citationTitle = document.querySelector('meta[name="citation_title"]')?.content;
-      const citationJournal = document.querySelector('meta[name="citation_journal_title"], meta[name="prism.publicationName"]')?.content;
+      const citationJournal = document.querySelector('meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="journal_title"], meta[name="bepress_citation_journal_title"]')?.content;
       const article = document.querySelector("main article, article[role='main'], main");
-      return citationTitle && citationJournal && article ? [article] : [];
+      const journalLanding = /\/(?:journal|journals|loi|about)(?:\/|$)/i.test(location.pathname);
+      const journalHeading = document.querySelector("main h1, header h1, .journal-title");
+      // Journal landing pages commonly have a journal-name meta tag but no article title.
+      return (citationTitle || citationJournal || (journalLanding && journalHeading)) && article ? [article] : [];
     }
     const selector = resultSelector();
     return selector ? document.querySelectorAll(selector) : [];
@@ -278,8 +308,16 @@
     const unique = [...new Set(keys)].filter(Boolean);
     await Promise.all(unique.map(loadShard));
   }
+  // Catalogues usually store English possessives without the apostrophe
+  // ("Parkinsons"), whereas publisher and Scholar pages render "Parkinson's".
+  // Normalising the possessive before lookup makes this a title equivalence,
+  // rather than a one-off alias for a particular npj journal.
+  function venueKey(value) {
+    return N.normalize(String(value || "").replace(/([\p{L}\p{N}])['’]s\b/gu, "$1s"));
+  }
+
   function abbreviationKey(value) {
-    return N.normalize(value).split(" ").filter((token) => token && !STOP.has(token))
+    return venueKey(value).split(" ").filter((token) => token && !STOP.has(token))
       .map((token) => token.slice(0, 4)).join(" ");
   }
 
@@ -307,6 +345,7 @@
     if (site === "wanfang") return container.querySelector('.source a, .periodical a, .journal a, [class*="magazine"] a') || container.querySelector('.source, .periodical, .journal, [class*="magazine"]') || container;
     if (site === "aminer") return container.querySelector('.conf-info-zone .venue-link a, .conf-info-zone .venue-link, .venue-link a') || container;
     if (site === "baidu-scholar") return container.querySelector('.paper-info, .sc_info') || container;
+    if (site === "researchgate") return researchGateVenueNode(container) || container;
     if (site === "publisher") return publisherVenueNode(container) || container;
     return container;
   }
@@ -323,6 +362,7 @@
     if (site === "wanfang") return container.querySelector('.title a, a.title, a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]');
     if (site === "aminer") return container.querySelector('a.title-link[href^="/pub/"], .paper-title');
     if (site === "baidu-scholar") return container.querySelector('.paper-title a, h3.t a, .t a, a[href*="/usercenter/paper/show"]');
+    if (site === "researchgate") return container.querySelector("h1, h2 a[href*='/publication/'], h3 a[href*='/publication/'], a[href*='/publication/']");
     if (site === "publisher") {
       return container.querySelector(
         "[data-test*='title'] a, [data-testid*='title'] a, .article-title a, .result-title a, .title a, h2 a, h3 a, " + PUBLISHER_TITLE_LINK_SELECTOR
@@ -346,6 +386,7 @@
     if (site === "wanfang") return container.querySelector('.source a, .periodical a, .journal a, [class*="magazine"] a') || container.querySelector('.source, .periodical, .journal, [class*="magazine"]');
     if (site === "aminer") return container.querySelector('.conf-info-zone .venue-link a, .conf-info-zone .venue-link, .venue-link a');
     if (site === "baidu-scholar") return container.querySelector('.paper-info, .sc_info');
+    if (site === "researchgate") return researchGateVenueNode(container);
     if (site === "publisher") return publisherVenueNode(container);
     return null;
   }
@@ -358,15 +399,118 @@
     );
   }
 
-  function publisherDocumentVenue() {
-    const meta = document.querySelector(
-      'meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="dc.source"], meta[property="og:site_name"]'
+  function topLevelContainers(containers) {
+    const values = [...containers];
+    return values.filter((container) => !values.some((other) => other !== container && other.contains(container)));
+  }
+
+  function isJournalLandingPage() {
+    const path = location.pathname.toLowerCase();
+    if (/\/(?:article|articles|doi|document|search)(?:\/|$)/.test(path)) return false;
+    if (/\/(?:journal|journals|loi)(?:\/|$)/.test(path)) return true;
+    // Nature Portfolio journal homes use short paths such as /npjscifood/.
+    if (/(^|\.)nature\.com$/.test(location.hostname) && /^\/[^/]+\/?$/.test(path)) return true;
+    // Emerald's redesigned site uses the journal code itself as the home
+    // path (for example, /ejm/).  It is neither an article route nor named
+    // /journal/, so recognize the whole family of code-based journal homes.
+    if (/(^|\.)emerald\.com$/.test(location.hostname) && /^\/(?!insight\/?$)[a-z0-9-]+\/?$/i.test(path)) return true;
+    // Oxford Academic uses compact journal codes such as /jcr/ rather than a
+    // /journal/ route.  Exclude site utility pages but support the entire
+    // code-based journal-home family.
+    if (location.hostname === "academic.oup.com" && /^\/(?!search|my-account|advanced-search)[a-z0-9-]+\/?$/i.test(path)) return true;
+    return siteKind() === "publisher" && Boolean(journalHeaderNode()) && /\/(?:about|publication)\b/.test(path);
+  }
+
+  function journalHeaderNode() {
+    return document.querySelector(
+      "[data-test*='journal-title'], [data-testid*='journal-title'], .journal-title h1, .journal-title, " +
+      ".journal-header h1, .journal-header__title, .publication-header__title, .journal-banner h1, " +
+      "[class*='journal-banner'] h1, [class*='journal-header'] h1, main h1, header h1, h1"
     );
+  }
+
+  function researchGateVenueNode(container) {
+    return container.querySelector(
+      "a[href*='/journal/'], [data-testid*='journal'], [data-testid*='publication-venue'], .publication-meta__journal, .publication-title"
+    );
+  }
+
+  function researchGateVenueFromText(value) {
+    const raw = String(value || "");
+    const direct = raw.match(/(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}\s*[\u00b7\u2022]\s*([^\n\u00b7\u2022]+?)(?:\s+\d+\s*:\s*\d+)?(?:\n|$)/i);
+    const directVenue = (direct?.[1] || "").trim();
+    if (directVenue && !/\b(?:read|citation)s?\b/i.test(directVenue)) return directVenue;
+    const inline = raw.match(/(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}\s*[·•]\s*([^\n·]+?)(?:\s+\d+\s*:\s*\d+)?(?:\n|$)/i);
+    const inlineVenue = (inline?.[1] || "").trim();
+    if (inlineVenue && !/\b(?:read|citation)s?\b/i.test(inlineVenue)) return inlineVenue;
+    const lines = raw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    const dateAt = lines.findIndex((line) => /(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}/i.test(line));
+    if (dateAt >= 0) {
+      // On profile cards the journal is the first substantive line after the
+      // Article/date/reads line.  Ignore controls and author lines defensively.
+      for (let index = dateAt + 1; index < Math.min(lines.length, dateAt + 4); index += 1) {
+        const line = lines[index].replace(/^\s*(?:journal|source)\s*[:·-]\s*/i, "").trim();
+        if (line && !/^(download|share|article|full-text available)$/i.test(line) && !/[•·]\s*[^•·]+$/.test(line)) return line;
+      }
+    }
+    return "";
+  }
+
+  function isResearchGatePublicationPage() {
+    return siteKind() === "researchgate" && /\/publication\//.test(location.pathname);
+  }
+
+  function isPublisherDocumentPage() {
+    if (siteKind() !== "publisher" || isJournalLandingPage()) return false;
+    if (/\/(?:article|articles|doi|document|content)\//.test(location.pathname)) return true;
+    return Boolean(document.querySelector('meta[name="citation_title"], meta[name="citation_journal_title"], meta[name="prism.publicationName"]'));
+  }
+
+  function researchGateDocumentVenue() {
+    const meta = document.querySelector('meta[name="citation_journal_title"], meta[name="dc.source"], meta[name="prism.publicationName"]');
+    if (meta?.content?.trim()) return meta.content.trim();
+    for (const node of document.querySelectorAll('script[type="application/ld+json"]')) {
+      const match = (node.textContent || "").match(/"isPartOf"\s*:\s*\{[^{}]{0,800}?"name"\s*:\s*"([^"]+)"/i);
+      if (match?.[1]) return match[1];
+    }
+    const linked = (document.querySelector("a[href*='/journal/'], [data-testid*='journal']")?.textContent || "").trim();
+    if (linked) return linked;
+    // ResearchGate sometimes exposes the journal only below the paper title.
+    return researchGateVenueFromText(document.body?.innerText || "");
+  }
+
+  function publisherDocumentVenue() {
+    const meta = document.querySelector('meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="journal_title"], meta[name="bepress_citation_journal_title"], meta[name="dc.source"]');
     const value = (meta?.content || "").trim();
-    if (value && !/^(springerlink|sciencedirect|wiley online library|ieee xplore|acm digital library)$/i.test(value)) return value;
+    if (value && !/^(springer(?:link| nature link)?|sciencedirect|elsevier|wiley(?: online library)?|sage journals?|oxford academic|emerald(?: publishing)?|taylor and francis|cambridge core|ieee xplore|acm digital library)$/i.test(value)) return value;
     return (document.querySelector(
-      "header [data-test*='journal-title'], header .journal-title, a[aria-label*='journal'], .publication-header__title"
-    )?.textContent || "").trim();
+      "[data-test*='journal-title'], [data-testid*='journal-title'], header .journal-title, main .journal-title, " +
+      "a[aria-label*='journal'], .publication-header__title, main h1, header h1, h1"
+    )?.textContent || document.title || "").trim();
+  }
+
+  function publisherPageTitleCandidates() {
+    const values = [];
+    const add = (value) => {
+      const cleaned = String(value || "").trim();
+      if (!cleaned || values.includes(cleaned)) return;
+      values.push(cleaned);
+      const lead = cleaned.split(/\s+[|｜]\s+/)[0].trim();
+      if (lead && lead !== cleaned && !values.includes(lead)) values.push(lead);
+      const withoutPublisher = cleaned.replace(/\s+[-|｜]\s+(?:wiley(?: online library)?|nature(?: portfolio)?|springer(?: nature)?|emerald(?: publishing)?|sage journals?|oxford academic|taylor\s*&\s*francis).*$/i, "").trim();
+      if (withoutPublisher && withoutPublisher !== cleaned && !values.includes(withoutPublisher)) values.push(withoutPublisher);
+    };
+    for (const meta of document.querySelectorAll('meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="journal_title"], meta[name="bepress_citation_journal_title"], meta[property="og:title"], meta[name="twitter:title"]')) add(meta.content);
+    // Journal homes (notably the redesigned Emerald pages) often have no
+    // citation metadata.  Their visible banner is nevertheless authoritative.
+    if (isJournalLandingPage()) add(journalHeaderNode()?.textContent);
+    // OUP frequently renders the journal identity as a masthead image.  Its
+    // alt text is a reliable full title when there is no textual h1.
+    if (location.hostname === "academic.oup.com" && isJournalLandingPage()) {
+      for (const image of document.querySelectorAll("img[alt]")) add(image.alt);
+    }
+    add(document.title);
+    return values;
   }
 
   function dblpKeyFromHref(href) {
@@ -458,12 +602,107 @@
         ? parts[1].replace(new RegExp("^(?:\\u6765\\u6E90|\\u520A\\u540D)[:\\uFF1A]\\s*"), "").trim()
         : "";
     }
+    if (site === "researchgate") {
+      if (isResearchGatePublicationPage()) return researchGateDocumentVenue() || raw;
+      const perResult = (researchGateVenueNode(container)?.textContent || "").trim();
+      const fromText = researchGateVenueFromText(container.innerText || container.textContent || "");
+      // A profile/search card must never inherit a journal from the open page.
+      // Its full local text is retained as a fallback so embedded journal text can be matched.
+      return fromText || perResult || raw;
+    }
     if (site === "publisher") {
+      if (isJournalLandingPage()) return (journalHeaderNode()?.textContent || publisherDocumentVenue()).trim();
       const perResult = (publisherVenueNode(container)?.textContent || "").trim();
       return perResult || publisherDocumentVenue();
     }
     return raw;
   }
+  function scholarVisibleVenueCandidates(container) {
+    const values = [];
+    const add = (value) => {
+      const text = String(value || "").trim();
+      const words = text.split(/\s+/).filter(Boolean);
+      if (text.length >= 6 && text.length <= 140 && words.length >= 2 && words.length <= 18 && !values.includes(text)) values.push(text);
+    };
+    const citation = container.querySelector(".gs_a")?.textContent || "";
+    for (const part of citation.split(/\s+-\s+/).slice(1)) {
+      // Keep an ellipsis intact.  It means Scholar has truncated the venue,
+      // not that the visible prefix is a journal title in its own right.
+      add(part.replace(/,?\s*(?:19|20)\d{2}.*$/, "").trim());
+    }
+    // EasyScholar resolves ellipsized Scholar citations asynchronously.  Reuse
+    // its displayed, full venue text when it is present rather than guessing.
+    for (const node of container.querySelectorAll(".easyScholarPaperFlag, .easyScholarTemp, [class*='easyScholar']")) {
+      add(node.textContent);
+      add(node.getAttribute("title"));
+      add(node.getAttribute("data-journal"));
+      add(node.getAttribute("data-source"));
+    }
+    // Google Scholar and companion extensions render source names using
+    // different classes. Leaf text keeps this selector-independent.
+    for (const node of container.querySelectorAll("a, span")) {
+      if (node.children.length) continue;
+      add(node.textContent);
+      add(node.getAttribute("title"));
+    }
+    return values;
+  }
+
+  function scholarExplicitVenueCandidates(container) {
+    const values = [];
+    const add = (value) => {
+      const text = String(value || "").trim();
+      const words = text.split(/\s+/).filter(Boolean);
+      if (text.length >= 6 && text.length <= 140 && words.length >= 2 && words.length <= 18 && !values.includes(text)) values.push(text);
+    };
+    // Companion extensions use varying elements for their full journal-name
+    // pill. Read known enrichment containers and generic leaf elements, while
+    // excluding our own badges so rendering cannot change the fingerprint and
+    // trigger a self-rescan loop.
+    for (const node of container.querySelectorAll(".easyScholarPaperFlag, .easyScholarTemp, [class*='easyScholar']")) {
+      add(node.textContent);
+      add(node.getAttribute?.("data-journal"));
+      add(node.getAttribute?.("data-source"));
+      add(node.getAttribute?.("title"));
+    }
+    for (const node of container.querySelectorAll("*")) {
+      if (node.closest?.(".rank-assistant-row, .rank-assistant-venue-detail, #rank-assistant-shared-tooltip")) continue;
+      if (node.matches?.(".gs_a, .gs_rt, .gsc_a_at")) continue;
+      if (node.children.length) continue;
+      add(node.textContent);
+      add(node.getAttribute?.("data-journal"));
+      add(node.getAttribute?.("data-source"));
+      add(node.getAttribute?.("title"));
+    }
+    return values;
+  }
+
+  function scholarVenueFingerprint(container) {
+    // Keep a stable snapshot of the text that may identify a venue.  This is
+    // used to distinguish EasyScholar's delayed venue enrichment from normal
+    // Google Scholar page churn (which must not clear existing badges).
+    return scholarExplicitVenueCandidates(container).map((value) => N.normalize(value)).join("\u001f");
+  }
+
+  function pubmedVisibleVenueCandidates(container) {
+    const values = [];
+    const add = (value) => {
+      const text = String(value || "").trim();
+      const words = text.split(/\s+/).filter(Boolean);
+      if (text.length >= 6 && text.length <= 140 && words.length >= 2 && words.length <= 18 && !values.includes(text)) values.push(text);
+    };
+    // EasyScholar renders the expanded journal title asynchronously on PubMed.
+    // The native PubMed line frequently has only an abbreviation (e.g. Front
+    // Neurol.), so prefer the explicit full-title fields when they arrive.
+    for (const node of container.querySelectorAll(".easyScholarPaperFlag, .easyScholarTemp, [class*='easyScholar']")) {
+      add(node.textContent);
+      add(node.getAttribute("title"));
+      add(node.getAttribute("data-journal"));
+      add(node.getAttribute("data-source"));
+    }
+    return values;
+  }
+
   function candidateTexts(container) {
     if (siteKind() === "semantic-scholar") return semanticScholarVenueCandidates(container);
     const candidates = [];
@@ -472,11 +711,96 @@
       if (cleaned && !candidates.includes(cleaned)) candidates.push(cleaned);
     };
     add(candidateText(container));
+    if (siteKind() === "scholar") {
+      const source = candidates[0] || "";
+      const normalizedSource = N.normalize(source);
+      // These are unambiguous Scholar source labels, not fuzzy prefix rules:
+      // bare "Jama" denotes the flagship journal, whereas named JAMA
+      // specialty journals retain their full labels (JAMA Neurology, etc.).
+      if (normalizedSource === "jama") add("JAMA Journal of the American Medical Association");
+      if (normalizedSource === "the lancet") add("Lancet");
+      // Keep explicit, rendered full venue names ahead of Scholar's source
+      // line. Google Scholar sometimes attributes an article to a similarly
+      // named but different journal; those source strings are only fallback.
+      const explicit = scholarExplicitVenueCandidates(container);
+      for (const value of explicit.slice().reverse()) candidates.unshift(value);
+      for (const value of scholarVisibleVenueCandidates(container)) add(value);
+    }
+    if (siteKind() === "pubmed") {
+      for (const value of pubmedVisibleVenueCandidates(container)) add(value);
+    }
+    // Document-level metadata belongs only to a ResearchGate publication page.
+    // Adding it to cards made every result on a profile inherit the same journal.
+    if (isResearchGatePublicationPage()) add(researchGateDocumentVenue());
+    if (siteKind() === "publisher" && isJournalLandingPage()) {
+      for (const value of publisherPageTitleCandidates()) add(value);
+      // MDPI displays short brand titles such as "Agriculture" on its
+      // journal home pages, whereas authoritative catalogues commonly store
+      // the disambiguated official form "Agriculture-Basel".  Try that
+      // official variant only on MDPI homes; it does not loosen matching on
+      // other publishers or article search results.
+      if (/(^|\.)mdpi\.com$/.test(location.hostname)) {
+        const shortTitle = (journalHeaderNode()?.textContent || "").trim();
+        if (shortTitle && shortTitle.split(/\s+/).length <= 6) add(shortTitle + " Basel");
+      }
+    }
     const venue = venueNode(container);
     for (const attribute of ["data-full-text", "data-venue", "title"]) {
       add(venue?.getAttribute?.(attribute));
     }
     return candidates;
+  }
+
+  function publisherIssns() {
+    const found = new Set();
+    const add = (value) => {
+      const matches = String(value || "").match(/\b\d{4}[- ]?\d{3}[\dX]\b/gi) || [];
+      for (const match of matches) found.add(match.replace(/[^0-9X]/gi, "").toUpperCase());
+    };
+    for (const meta of document.querySelectorAll('meta[name*="issn" i], meta[property*="issn" i], meta[name="dc.identifier"]')) add(meta.content);
+    add(location.pathname);
+    const main = document.querySelector("main, header");
+    add(main?.innerText || main?.textContent || "");
+    // Some publisher homes put their authoritative ISSN outside <main>:
+    // Emerald uses the cover/issue area, while Oxford Academic puts it in the
+    // journal footer.  Use that page-level identifier only on journal landing
+    // pages, where it identifies the journal itself rather than a cited work.
+    if ((/(^|\.)emerald\.com$/.test(location.hostname) || location.hostname === "academic.oup.com") && isJournalLandingPage()) {
+      add(document.body?.innerText || document.body?.textContent || "");
+    }
+    return [...found];
+  }
+
+  function pubmedId(container) {
+    const href = container.querySelector("a.docsum-title, a[href*='/pubmed/'], a[href]")?.getAttribute("href") || "";
+    const fromHref = href.match(/(?:^|\/)\d{6,10}(?:\/|$)/)?.[0]?.replace(/\//g, "");
+    if (fromHref) return fromHref;
+    return (container.textContent || "").match(/PMID:\s*(\d{6,10})/i)?.[1] || "";
+  }
+
+  async function indexedRecordForIssns(values) {
+    const index = globalThis.RankAssistantIssnIndex;
+    if (!index) return null;
+    const hints = (Array.isArray(values) ? values : [values])
+      .map((value) => index[String(value || "").replace(/[^0-9X]/gi, "").toUpperCase()])
+      .filter((value) => Array.isArray(value) && value.length === 2);
+    if (!hints.length) return null;
+    const [key, offset] = hints[0];
+    await loadShard(key);
+    return state.shards.get(key)?.r?.[offset] || null;
+  }
+
+  async function indexedIssnRecord() {
+    return indexedRecordForIssns(publisherIssns());
+  }
+
+  function publisherLandingTitleRecord() {
+    // Keep this deliberately exact.  It is a separate path from the broad
+    // result-card matcher because journal home pages can contain many article
+    // and navigation titles.  The masthead/title candidates are authoritative.
+    return uniqueRecord(publisherPageTitleCandidates().map((title) =>
+      matchRecord(title, { allowCompletion: false })
+    ));
   }
   function recordInShard(key, normalized, abbreviated) {
     const shard = state.shards.get(key);
@@ -489,7 +813,7 @@
   }
 
   function exactRecord(text) {
-    const normalized = N.normalize(text);
+    const normalized = venueKey(text);
     if (!normalized) return null;
     return recordInShard(shardKey(normalized), normalized, abbreviationKey(normalized));
   }
@@ -512,7 +836,7 @@
   }
 
   function prefixRecord(text, { includeExact = false } = {}) {
-    const normalized = N.normalize(text);
+    const normalized = venueKey(text);
     const candidateTokens = normalized.split(" ").filter(Boolean);
     if (candidateTokens.length < 4 || normalized.length < 20) return null;
     const shard = state.shards.get(shardKey(normalized));
@@ -530,7 +854,7 @@
   }
 
   function fuzzyAbbreviationRecord(text) {
-    const normalized = N.normalize(text);
+    const normalized = venueKey(text);
     const candidate = abbreviationKey(normalized);
     const candidateTokens = candidate.split(" ").filter(Boolean);
     if (candidateTokens.length < 2) return null;
@@ -556,7 +880,7 @@
     return matches.size === 1 ? shard.r[[...matches][0]] || null : null;
   }
   function longEmbeddedRecord(text) {
-    const normalized = N.normalize(text);
+    const normalized = venueKey(text);
     const words = normalized.split(" ").filter(Boolean);
     for (let size = Math.min(state.maxAliasWords, words.length); size >= 4; size -= 1) {
       const matches = [];
@@ -580,13 +904,15 @@
   }
 
   function matchRecord(text, { allowEmbedded = false, allowCompletion = true } = {}) {
-    const normalized = N.normalize(text);
+    const normalized = venueKey(text);
     if (!normalized) return null;
     const shard = state.shards.get(shardKey(normalized));
     if (shard?.x?.includes(normalized)) return null;
     const truncated = /(?:\.\.\.|\u2026)+\s*$/.test(String(text || ""));
     if (!truncated) {
-      const exact = exactRecord(normalized);
+      // Scholar commonly spells canonical titles with a leading article
+      // (e.g. "The Lancet"), while the catalogue stores "Lancet".
+      const exact = exactRecord(normalized) || (normalized.startsWith("the ") ? exactRecord(normalized.slice(4)) : null);
       if (exact) return exact;
     }
     if (allowCompletion) {
@@ -601,13 +927,71 @@
   function semanticScholarRecord(texts) {
     return uniqueRecord(texts.map((text) => matchRecord(text)));
   }
+
+  function scholarExplicitRecord(texts) {
+    // Scholar's native source line is occasionally wrong or abbreviated.  A
+    // companion extension may expose the full journal name in the same card,
+    // so do not let an unrelated shorter title ("Journal of Marketing")
+    // cancel a more specific exact title ("European Journal of Marketing").
+    // This accepts exact catalogue matches only; prefixes and fuzzy aliases
+    // remain fallback behaviour and can never win this conflict.
+    const matches = [];
+    for (const text of texts || []) {
+      const record = matchRecord(text, { allowCompletion: false });
+      if (!record) continue;
+      const titleWords = venueKey(record[0]).split(" ").filter(Boolean).length;
+      const textWords = venueKey(text).split(" ").filter(Boolean).length;
+      matches.push({ record, score: Math.min(titleWords, textWords), titleWords });
+    }
+    if (!matches.length) return null;
+    matches.sort((left, right) => right.score - left.score || right.titleWords - left.titleWords);
+    const best = matches[0];
+    const tied = matches.filter((match) => match.score === best.score && match.titleWords === best.titleWords);
+    return uniqueRecord(tied.map((match) => match.record)) || best.record;
+  }
+
+  function isUnsafeScholarVenue(value) {
+    const normalized = venueKey(value);
+    // These catalogue names are valid journals but are too generic to infer
+    // from Scholar's collapsed source line.  They require an ISSN-backed
+    // article lookup instead of a title-only match.
+    return normalized === "international journal" || normalized === "journal";
+  }
+
+  function scholarSourceRecord(value) {
+    if (isUnsafeScholarVenue(value)) return null;
+    const normalized = venueKey(value);
+    const words = normalized.split(" ").filter(Boolean);
+    // Short journal titles are common (Appetite, Insects, Animals, Science).
+    // Permit them only as an exact catalogue title, never via prefix/fuzzy
+    // completion, so the fix does not reintroduce the generic-title problem.
+    if (words.length <= 2) {
+      return exactRecord(normalized) || (normalized.startsWith("the ") ? exactRecord(normalized.slice(4)) : null);
+    }
+    return matchRecord(value);
+  }
+
+  function scholarFallbackRecord(texts) {
+    const safe = (texts || []).filter((text) => !isUnsafeScholarVenue(text));
+    return uniqueRecord(safe.map((text) => matchRecord(text)));
+  }
   function primaryShardForText(text) {
-    const normalized = N.normalize(text);
+    const normalized = venueKey(text);
     return normalized ? shardKey(normalized) : "";
   }
 
+  function primaryShardsForText(text) {
+    const normalized = venueKey(text);
+    if (!normalized) return [];
+    const keys = [shardKey(normalized)];
+    // "The Lancet" and equivalent leading-article titles may normalize to a
+    // record in another shard. Load both deterministically before exact match.
+    if (normalized.startsWith("the ")) keys.push(shardKey(normalized.slice(4)));
+    return [...new Set(keys)];
+  }
+
   function secondaryShardsForText(text) {
-    const normalized = N.normalize(text);
+    const normalized = venueKey(text);
     if (!normalized) return [];
     return normalized.split(" ").map(shardKey);
   }
@@ -833,7 +1217,17 @@
     ];
   }
 
-  function renderBadges(record) {
+  function renderBusinessBadges(row, business) {
+    const s = state.settings;
+    if (s.showUtd24 && business?.utd24) row.appendChild(badge("utd24", "UTD24", "UT Dallas 24", [
+      { label: "期刊", value: business.name }, { label: "目录", value: "UTD 24" }
+    ], "UT Dallas Top 100 Business School Research Rankings 使用的 24 本商科期刊目录。"));
+    if (s.showFt50 && business?.ft50) row.appendChild(badge("ft50", "FT50", "Financial Times 50", [
+      { label: "期刊", value: business.name }, { label: "版本", value: "2026 年 4 月" }
+    ], "Financial Times 全球商学院研究排名使用的 FT50 期刊目录。"));
+  }
+
+  function renderBadges(record, business = null) {
     const row = document.createElement("span");
     row.className = "rank-assistant-row";
     row.dataset.paperRank = "1";
@@ -873,6 +1267,7 @@
       }
     }
 
+    renderBusinessBadges(row, business);
     if (!record) return row.children.length ? row : null;
 
     if (s.showCas && record[4]) {
@@ -1031,17 +1426,42 @@
     );
   }
 
-  function attachTitleRow(container, row) {
+  function visibleVenueNode(container, names = []) {
+    const wanted = new Set(names.map((name) => venueKey(name)).filter(Boolean));
+    if (!wanted.size) return null;
+    return [...container.querySelectorAll("a, h1, h2, h3, h4, p, span, div, img[alt]")]
+      .find((node) => wanted.has(venueKey(node.getAttribute?.("alt") || node.textContent || ""))) || null;
+  }
+
+  function attachTitleRow(container, row, venueNames = []) {
+    const site = siteKind();
+    // A journal landing page is itself the ranked object, so keep the badges
+    // beside its journal heading. Search cards and article pages still follow
+    // the extension-wide convention of placing badges next to the paper title.
+    if ((site === "publisher" && isJournalLandingPage()) ||
+        (site === "researchgate" && isResearchGatePublicationPage())) {
+      const journal = visibleVenueNode(container, venueNames) ||
+        (site === "publisher" ? visibleVenueNode(document, venueNames) : null) || venueNode(container);
+      if (journal) {
+        if (journal.nextElementSibling?.classList?.contains("rank-assistant-row")) journal.nextElementSibling.remove();
+        journal.insertAdjacentElement("afterend", row);
+        return;
+      }
+    }
     const title = titleNode(container);
     if (!title) {
       metadataNode(container).prepend(row);
       return;
     }
-    if (siteKind() === "scholar" && !title.matches?.(".gsc_a_at")) title.appendChild(row);
+    if (site === "scholar" && !title.matches?.(".gsc_a_at")) title.appendChild(row);
     else title.insertAdjacentElement("afterend", row);
   }
 
   function attachVenueDetails(container, details) {
+    // On a journal home (including its About/Submission tabs), ranks belong
+    // beside the journal heading only. Never inject a details control into the
+    // page body, where every ordinary link can become an insertion target.
+    if (siteKind() === "publisher" && isJournalLandingPage()) return;
     const venue = venueNode(container);
     if (!venue) {
       if (siteKind() === "publisher") {
@@ -1093,19 +1513,33 @@
       container.classList.remove("rank-assistant-filter-hidden");
       delete container.dataset.paperRankProcessed;
       delete container.dataset.paperRankLoading;
+      delete container.dataset.paperRankMatched;
     }
     if (!state.settings.enabled) return;
     idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
   }
 
-  function renderContainer(container, record) {
+  function renderContainer(container, record, texts = []) {
+    if (isResearchGatePublicationPage() || isPublisherDocumentPage()) {
+      document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+    }
     container.dataset.paperRankProcessed = "1";
     delete container.dataset.paperRankLoading;
     const visible = recordPassesFilters(record);
     container.classList.toggle("rank-assistant-filter-hidden", !visible);
     if (!visible) return;
-    const row = renderBadges(record);
-    if (row) attachTitleRow(container, row);
+    const canonicalTexts = record ? [record[0]] : [];
+    // UTD/FT matching is exact, so it may still be shown for a clean venue
+    // line outside Scholar; Google Scholar uses only confirmed records.
+    const businessTexts = siteKind() === "scholar" ? canonicalTexts : (canonicalTexts.length ? canonicalTexts : texts);
+    const business = businessTexts.map((text) => globalThis.RankAssistantBusinessRankings?.match(text)).find(Boolean) || null;
+    const row = renderBadges(record, business);
+    if (row) {
+      attachTitleRow(container, row, [record?.[0], business?.name]);
+      container.dataset.paperRankMatched = "1";
+    } else {
+      delete container.dataset.paperRankMatched;
+    }
     if (record) attachVenueDetails(container, renderVenueDetails(record));
   }
 
@@ -1143,14 +1577,28 @@
     if (!containers.length) return;
     const site = siteKind();
     const isSemanticScholar = site === "semantic-scholar";
-    const allowEmbedded = site === "arxiv";
+    const allowEmbedded = site === "arxiv" || site === "researchgate" || (site === "publisher" && isJournalLandingPage());
     const items = containers.map((container) => {
       container.dataset.paperRankLoading = "1";
+      const sourceText = site === "scholar" ? candidateText(container) : "";
       const texts = candidateTexts(container);
-      return { container, texts, text: texts[0] || "", record: null };
+      const explicitTexts = site === "scholar" ? scholarExplicitVenueCandidates(container) : [];
+      return { container, texts, explicitTexts, sourceText, venueFingerprint: site === "scholar" ? scholarVenueFingerprint(container) : "", text: texts[0] || "", pmid: site === "pubmed" ? pubmedId(container) : "", pubmedIssns: [], record: null };
     });
 
     try {
+      // Scholar matching remains local. Paper titles are never sent to
+      // Crossref merely to recover a truncated source name.
+      // PubMed's result cards show abbreviated journal strings. Use the NCBI
+      // PMID summary as the source of truth for the full title and ISSN.
+      if (site === "pubmed") {
+        const response = await sendRuntimeMessage({ type: "rank-assistant-pubmed-journals", pmids: items.map((item) => item.pmid).filter(Boolean) });
+        for (const item of items) {
+          const summary = response?.summaries?.[item.pmid];
+          if (summary?.title && !item.texts.includes(summary.title)) item.texts.unshift(summary.title);
+          if (summary?.issn) item.pubmedIssns.push(summary.issn);
+        }
+      }
       if (isDblp()) {
         const response = await sendRuntimeMessage({
           type: "rank-assistant-match-dblp-venues",
@@ -1159,16 +1607,38 @@
         if (response?.ok && Array.isArray(response.records) && response.records.length === items.length) {
           response.records.forEach((record, index) => { items[index].record = record || null; });
           state.lastScanDetail = (Number(response.shardCount) || 0) + " background data shards";
-          for (const item of items) renderContainer(item.container, item.record);
+          for (const item of items) renderContainer(item.container, item.record, item.texts);
           return;
         }
       }
-      await ensureShards(items.flatMap((item) => item.texts.map(primaryShardForText)));
+      await ensureShards(items.flatMap((item) => item.texts.flatMap(primaryShardsForText)));
+      // Publisher journal homes, especially Wiley's logo-led templates, often
+      // expose ISSNs long before any machine-readable journal title.  Resolve
+      // those ISSNs through the packaged index, so we load only one shard
+      // instead of timing out while the background decrypts the whole catalog.
+      const indexedPublisherRecord = site === "publisher" && (isJournalLandingPage() || isPublisherDocumentPage())
+        ? await indexedIssnRecord()
+        : null;
+      const publisherTitleRecord = site === "publisher" && isJournalLandingPage()
+        ? publisherLandingTitleRecord()
+        : null;
       const unresolved = [];
       for (const item of items) {
-        item.record = isSemanticScholar
-          ? semanticScholarRecord(item.texts)
-          : uniqueRecord(item.texts.map((text) => matchRecord(text, { allowCompletion: !allowEmbedded })));
+        const explicitScholarRecord = site === "scholar"
+          ? scholarExplicitRecord(item.explicitTexts)
+          : null;
+        // Candidate text includes author/title/snippet nodes, so a strict
+        // all-candidates agreement can discard a perfectly clear native
+        // Scholar source such as "Management Science".  Use the source line
+        // deterministically after any richer EasyScholar full-title match.
+        const sourceRecord = site === "scholar"
+          ? scholarSourceRecord(item.sourceText)
+          : null;
+        let localFallback = null;
+        if (site === "scholar") localFallback = scholarFallbackRecord(item.texts);
+        else if (isSemanticScholar) localFallback = semanticScholarRecord(item.texts);
+        else localFallback = uniqueRecord(item.texts.map((text) => matchRecord(text, { allowCompletion: !allowEmbedded })));
+        item.record = indexedPublisherRecord || publisherTitleRecord || explicitScholarRecord || sourceRecord || (site === "pubmed" ? await indexedRecordForIssns(item.pubmedIssns) : null) || localFallback;
         if (!item.record) unresolved.push(item);
       }
       if (unresolved.length && allowEmbedded) {
@@ -1179,7 +1649,10 @@
       }
       unifyDblpVenueLineages(items);
       state.lastScanDetail = state.shards.size + " content data shards";
-      for (const item of items) renderContainer(item.container, item.record);
+      for (const item of items) {
+        renderContainer(item.container, item.record, item.texts);
+        if (site === "scholar") item.container.dataset.paperRankVenueFingerprint = item.venueFingerprint;
+      }
     } catch (error) {
       for (const item of items) delete item.container.dataset.paperRankLoading;
       throw error;
@@ -1189,6 +1662,10 @@
     const selector = resultSelector();
     if (!selector) return false;
     for (const record of records) {
+      if (record.type === "characterData") {
+        const parent = record.target?.parentElement;
+        if (parent && !parent.closest?.(".rank-assistant-row, .rank-assistant-venue-detail, #rank-assistant-shared-tooltip") && parent.closest?.(selector)) return true;
+      }
       for (const node of record.addedNodes) {
         if (node.nodeType !== Node.ELEMENT_NODE) continue;
         if (node.closest?.(".rank-assistant-row, .rank-assistant-venue-detail, #rank-assistant-shared-tooltip")) continue;
@@ -1201,13 +1678,49 @@
   function watchDynamicResults() {
     let timer;
     const observer = new MutationObserver((records) => {
+      const site = siteKind();
+      const dynamicVenueSite = site === "researchgate" || site === "publisher" || site === "scholar" || site === "pubmed";
+      // Ignore mutations made by our own badges, but react when Scholar or a
+      // companion extension fills in a venue after the first page render.
       if (!mutationContainsResults(records)) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
+        if (dynamicVenueSite) {
+          for (const container of resultContainers()) {
+            // EasyScholar's full journal label often arrives after this
+            // extension's initial pass. Scholar cards must be reconsidered
+            // even if a provisional badge was already rendered.
+            if (site === "scholar") {
+              const nextFingerprint = scholarVenueFingerprint(container);
+              if (nextFingerprint === (container.dataset.paperRankVenueFingerprint || "")) continue;
+            } else if (container.dataset.paperRankMatched === "1") continue;
+            // A rescan replaces its old output rather than appending another
+            // copy of the badges while a companion extension is hydrating.
+            container.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+            delete container.dataset.paperRankProcessed;
+            delete container.dataset.paperRankLoading;
+            delete container.dataset.paperRankMatched;
+          }
+        }
         idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
-      }, 80);
+      }, site === "scholar" ? 320 : 80);
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.documentElement, { childList: true, characterData: true, subtree: true });
+  }
+
+  function refreshDelayedScholarVenues() {
+    if (siteKind() !== "scholar") return;
+    let changed = false;
+    for (const container of resultContainers()) {
+      const nextFingerprint = scholarVenueFingerprint(container);
+      if (nextFingerprint === (container.dataset.paperRankVenueFingerprint || "")) continue;
+      container.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+      delete container.dataset.paperRankProcessed;
+      delete container.dataset.paperRankLoading;
+      delete container.dataset.paperRankMatched;
+      changed = true;
+    }
+    if (changed) idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
   }
 
   async function initialize() {
@@ -1219,6 +1732,13 @@
         await idle();
         await scan();
         watchDynamicResults();
+        // EasyScholar may add its full journal pill while the initial scan is
+        // still running, before the observer is installed.  One delayed check
+        // closes that narrow race; subsequent changes are handled by the
+        // observer, so a second unconditional pass is unnecessary.
+        if (siteKind() === "scholar") {
+          setTimeout(refreshDelayedScholarVenues, 900);
+        }
         setStatus("ready", state.lastScanDetail || (state.shards.size + " data shards"));
       } catch (error) {
         setStatus("error", String(error?.message || error));
@@ -1410,8 +1930,8 @@
     const site = siteKind();
     if (site === "publisher") {
       const route = (location.pathname + location.search).toLowerCase();
-      const hasArticleMetadata = Boolean(document.querySelector('meta[name="citation_title"], meta[name="citation_journal_title"], meta[name="prism.publicationName"]'));
-      const mayLoadPapers = hasArticleMetadata || /search|article|doi|document|journal|issue|content|publication/.test(route);
+      const hasArticleMetadata = Boolean(document.querySelector('meta[name="citation_title"], meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="journal_title"], meta[name="bepress_citation_journal_title"]'));
+      const mayLoadPapers = hasArticleMetadata || /search|article|doi|document|journal|journals|issue|loi|content|publication/.test(route);
       if (!mayLoadPapers) {
         setStatus("idle", "publisher page has no publication results");
         return;

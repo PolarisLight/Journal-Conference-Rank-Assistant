@@ -16,6 +16,7 @@ const STOP = new Set(["the", "of", "and", "for", "in", "on", "a", "an"]);
 const decryptedShardCache = new Map();
 const dblpRecoveryInFlight = new Map();
 const dblpRecoveryMemoryCache = new Map();
+const pubmedSummaryMemoryCache = new Map();
 
 function storageGet(defaults = null) {
   return new Promise((resolve) => chrome.storage.local.get(defaults, resolve));
@@ -537,6 +538,30 @@ async function getUpdatedShard(key) {
   }
 }
 
+async function pubmedJournalSummaries(values) {
+  const ids = [...new Set((Array.isArray(values) ? values : [values])
+    .map((value) => String(value || "").match(/^\d{6,10}$/)?.[0])
+    .filter(Boolean))].slice(0, 200);
+  if (!ids.length) return { ok: true, summaries: {} };
+  const missing = ids.filter((id) => !pubmedSummaryMemoryCache.has(id));
+  if (missing.length) {
+    const url = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi");
+    url.searchParams.set("db", "pubmed");
+    url.searchParams.set("id", missing.join(","));
+    url.searchParams.set("retmode", "json");
+    const payload = await fetchJson(url.toString(), 10000);
+    const records = payload?.result || {};
+    for (const id of missing) {
+      const entry = records[id] || {};
+      pubmedSummaryMemoryCache.set(id, {
+        title: String(entry.fulljournalname || entry.source || "").trim(),
+        issn: String(entry.issn || "").trim()
+      });
+    }
+  }
+  return { ok: true, summaries: Object.fromEntries(ids.map((id) => [id, pubmedSummaryMemoryCache.get(id) || {}])) };
+}
+
 function normalizeVenue(value) {
   return String(value || "")
     .normalize("NFKD")
@@ -756,6 +781,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.type === "rank-assistant-get-data-shard") {
     getUpdatedShard(message.key).then(sendResponse);
+    return true;
+  }
+  if (message?.type === "rank-assistant-pubmed-journals") {
+    pubmedJournalSummaries(message.pmids).then(sendResponse).catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
     return true;
   }
   if (message?.type === "rank-assistant-journal-metadata") {

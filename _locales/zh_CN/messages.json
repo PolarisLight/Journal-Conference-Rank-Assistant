@@ -334,6 +334,11 @@
   },
   "ui_retry": {
     "message": "重试"
+  },
+  "ui_ut_dallas_top_100_business_school_research_rankings_24": {
+    "message": "UT Dallas Top 100 Business School Research Rankings 使用的 24 本商科期刊目录。"
+  },
+  "ui_financial_times_ft50": {
+    "message": "Financial Times 全球商学院研究排名使用的 FT50 期刊目录。"
   }
 }
-

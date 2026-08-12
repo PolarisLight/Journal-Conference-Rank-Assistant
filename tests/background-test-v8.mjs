@@ -38,6 +38,7 @@ const bundlePath = "updates/" + JSON.parse(fs.readFileSync(latestPath, "utf8")).
 const originalBundleText = fs.readFileSync(bundlePath, "utf8");
 let tamperSignatureTest = false;
 const dblpApiFetches = [];
+const pubmedApiFetches = [];
 
 function responseJson(value) {
   return { ok: true, status: 200, json: async () => value };
@@ -84,6 +85,14 @@ const fetch = async (url) => {
       ISSN: ["0018-9162"],
       subject: ["Computer Science"]
     } });
+  }
+  if (value.includes("eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi")) {
+    pubmedApiFetches.push(value);
+    const ids = new URL(value).searchParams.get("id").split(",");
+    return responseJson({ result: Object.fromEntries(ids.map((id) => [id, {
+      fulljournalname: "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+      issn: "0162-8828"
+    }])) });
   }
   if (value.includes("/search/publ/api")) {
     const origin = new URL(value).origin;
@@ -172,6 +181,12 @@ assert.equal(journal.ok, true);
 assert.equal(journal.metadata.publisher, "IEEE");
 const cached = await message({ type: "rank-assistant-journal-metadata", issns: ["0018-9162"], title: "Computer" });
 assert.equal(cached.cached, true);
+const pubmed = await message({ type: "rank-assistant-pubmed-journals", pmids: ["12345678", "12345678", "bad"] });
+assert.equal(pubmed.ok, true);
+assert.equal(pubmed.summaries["12345678"].issn, "0162-8828");
+assert.equal(pubmedApiFetches.length, 1, "A PubMed batch must use one NCBI summary request");
+await message({ type: "rank-assistant-pubmed-journals", pmids: ["12345678"] });
+assert.equal(pubmedApiFetches.length, 1, "A repeated PMID must use the memory cache");
 const dblpRecovered = await message(
   { type: "rank-assistant-dblp-recover", query: "long tail", origin: "https://dblp.org" },
   { url: "https://dblp.org/search?q=long+tail" }

@@ -24,6 +24,7 @@ The extension places rank badges beside paper titles and explains each badge on 
 - Combined CAS partition and Top status, such as `CAS Zone 1 Top`
 - JCR Q1-Q4, impact factor, and Web of Science indexing types
 - CSSCI, PKU Core, Ei Compendex, XinRui partitions, and the current warning list
+- UTD24 and FT50 business-journal lists
 - Venue details including canonical name, publisher, topics, ISSN, data year, and source
 - A draggable page filter for keeping papers by index, partition, or rank
 - Light, dark, and system-following panel themes
@@ -45,6 +46,8 @@ The extension places rank badges beside paper titles and explains each badge on 
 | PKU Core | Chinese Core Journals | 2023 |
 | Ei Compendex | Source journals and proceedings | 2026-07-09 |
 | CAS warning list | Current list only | 2025 |
+| UTD24 | 24 journals used by the UT Dallas research ranking | Current list |
+| FT50 | Financial Times business-journal list | April 2026 |
 
 The local catalog contains **35,093** journal and conference records. SCI, SCIE, SSCI, CSSCI, PKU Core, and Ei Compendex are different indexing or title-list systems. They do not define another Q1-Q4 scale. Phrases such as “SCI Q1” normally refer to JCR quartiles, so quartiles appear only on the JCR badge.
 
@@ -58,12 +61,12 @@ ResearchGate is annotated only when a public publication page exposes standard j
 
 | Browser | Package | Notes |
 | --- | --- | --- |
-| Chrome / Chromium | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | The store currently offers 0.11.1; 0.11.2 is under review |
-| Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Version 0.11.2 is live, signed by Mozilla, with automatic updates |
+| Chrome / Chromium | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | Updates are delivered by the Chrome Web Store |
+| Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Signed by Mozilla with automatic updates |
 
 The Chrome and Firefox editions are now officially available from their respective browser extension stores.
 
-For direct package downloads, see [GitHub Release v0.11.2](https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases/tag/v0.11.2).
+For direct package downloads, see [GitHub Releases](https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases).
 
 ## Support the project
 
@@ -93,6 +96,7 @@ Ranking lookups run locally. The extension has no ads, analytics, user tracking,
 
 - checking and downloading signed database updates from this repository
 - querying the official DBLP JSON API when a results page is temporarily unavailable
+- querying the official NCBI summary API by PMID when PubMed omits a full journal title
 - querying Crossref by journal name or ISSN when metadata is missing, with results cached locally for 30 days
 
 The extension checks for updates every seven days but never replaces the database automatically. After the user clicks the update button, it verifies the encrypted bundle with SHA-256 and ECDSA P-256, then stores it using AES-GCM.
@@ -120,6 +124,12 @@ Plaintext inputs, private signing keys, and build caches are excluded by `.gitig
 ## Data and naming notice
 
 The offline inputs for base CCF, JCR, CAS partitions, XinRui 2026, and the current warning list are derived from GPL-3.0-licensed [`hitfyd/ShowJCR`](https://github.com/hitfyd/ShowJCR) exports, with upstream version metadata retained.
+
+UTD24 and FT50 are compiled from the [official UT Dallas journal list](https://jindal.utdallas.edu/news/2026-utd-top-100-business-school-research-rankings/) and the [Financial Times FT50 list](https://www.ft.com/ft50-journals). ABS/AJG data is not included in distributable packages because redistribution permission has not been established.
+
+## Contributors
+
+- Zining Wang — business-journal feature requirements, cross-site compatibility testing, and issue reports
 
 This project is not affiliated with or endorsed by the relevant ranking bodies, databases, search providers, or publishers. Rankings, quartiles, indexing information, and impact factors are references only. Always consult the latest official information before formal evaluation or submission decisions.
 

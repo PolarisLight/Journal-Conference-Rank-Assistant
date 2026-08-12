@@ -6,6 +6,8 @@ const { JSDOM } = await import("file:///C:/Users/polaris/Documents/Codex/2026-07
 const root = process.argv[2] || process.cwd();
 const normalizer = fs.readFileSync(path.join(root, "extension/lib/normalizer.js"), "utf8");
 const i18n = fs.readFileSync(path.join(root, "extension/lib/i18n.js"), "utf8");
+const businessRankings = fs.readFileSync(path.join(root, "extension/data/business-rankings.js"), "utf8");
+const issnIndex = fs.readFileSync(path.join(root, "extension/data/issn-index.js"), "utf8");
 const contentScript = fs.readFileSync(path.join(root, "extension/content/content-v7.js"), "utf8");
 const filterUi = fs.readFileSync(path.join(root, "extension/content/filter-ui.js"), "utf8");
 const paletteCss = fs.readFileSync(path.join(root, "extension/content/palettes.css"), "utf8");
@@ -28,7 +30,8 @@ for (const palette of ["soft", "vivid", "colorblind"]) {
     ["cas-1", "cas-2", "cas-3", "cas-4"],
     ["jcr-q1", "jcr-q2", "jcr-q3", "jcr-q4"],
     ["xinrui-1", "xinrui-2", "xinrui-3", "xinrui-4"],
-    ["cssci-source", "cssci-extended"]
+    ["cssci-source", "cssci-extended"],
+    ["utd24", "ft50"]
   ]) {
     const colors = tokens.map((token) => paletteToken(palette, token));
     assert.equal(new Set(colors).size, colors.length, `${palette} must distinguish ${tokens.join(", ")}`);
@@ -79,6 +82,7 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   const storageListeners = [];
   const storageWrites = [];
   const errors = [];
+  const runtimeMessages = [];
   const dom = new JSDOM(html, { url, runScripts: "outside-only", pretendToBeVisual: true });
   dom.window.__PAPER_RANK_DBLP_TIMEOUT_MS = 350;
   dom.window.chrome = {
@@ -86,6 +90,7 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
       getURL: (name) => "moz-extension://test/" + name,
       lastError: null,
       sendMessage: (message, callback) => {
+        runtimeMessages.push(message.type);
         if (message.type === "rank-assistant-get-data-shard") {
           const file = path.join(root, "extension/data", "catalog-shard-" + message.key + ".private.json");
           callback({ ok: true, shard: JSON.parse(fs.readFileSync(file, "utf8")), updated: false });
@@ -205,11 +210,13 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   dom.window.console.warn = (...args) => errors.push(args.map(String).join(" "));
   dom.window.eval(normalizer);
   dom.window.eval(i18n);
+  dom.window.eval(businessRankings);
+  dom.window.eval(issnIndex);
   dom.window.eval(contentScript);
   dom.window.eval(filterUi);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
   return {
-    dom, apiFetches, directApiFetches, backgroundRecoveryMessages, catalogFetches, errors, storageWrites,
+    dom, apiFetches, directApiFetches, backgroundRecoveryMessages, catalogFetches, errors, storageWrites, runtimeMessages,
     changeSettings(values) {
       const changes = {};
       for (const [key, value] of Object.entries(values)) {
@@ -351,6 +358,22 @@ assert.equal(scholarDoc.querySelector('.rank-assistant-badge[data-kind="cas"]').
 assert.equal(scholarDoc.querySelector('.rank-assistant-badge[data-kind="jcr"]').dataset.level, "q1");
 assert.ok(!scholarLabels.includes("\u4e2d\u79d1\u9662 Top"), JSON.stringify(scholarLabels));
 assert.ok(scholar.catalogFetches < 3, "Scholar should load fewer than the old three full catalog files");
+assert.equal(scholar.runtimeMessages.includes("rank-assistant-scholar-work-venues"), false,
+  "Scholar must not upload paper titles for Crossref fallback matching");
+
+const businessScholarHtml = '<div class="gs_r gs_or gs_scl" id="business-paper"><div class="gs_ri"><h3 class="gs_rt"><a>Business paper</a></h3><div class="gs_a">A Author - Management Science, 2026 - informs.org</div></div></div>';
+const businessScholar = await run("https://scholar.google.com/scholar?q=business", businessScholarHtml, 900);
+const businessLabels = [...businessScholar.dom.window.document.querySelectorAll("#business-paper .rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(businessLabels.includes("UTD24"), JSON.stringify(businessLabels));
+assert.ok(businessLabels.includes("FT50"), JSON.stringify(businessLabels));
+
+const unsafeBusinessHtml = '<div class="gs_r gs_or gs_scl" id="unsafe-business"><div class="gs_ri"><h3 class="gs_rt"><a>A paper about Management Science</a></h3><div class="gs_a">A Author - Analysis of results, 2026 - example.org</div></div></div>';
+const unsafeBusiness = await run("https://scholar.google.com/scholar?q=unsafe", unsafeBusinessHtml, 900);
+assert.deepEqual(
+  [...unsafeBusiness.dom.window.document.querySelectorAll("#unsafe-business .rank-assistant-badge")].map((node) => node.textContent),
+  ["CCF None"],
+  "A paper title must never trigger a business-journal label"
+);
 
 const scholarProfileHtml = '<table><tbody><tr class="gsc_a_tr" id="profile-paper"><td class="gsc_a_t"><a class="gsc_a_at">A highly cited profile paper</a><div class="gs_gray">A Researcher</div><div class="gs_gray">Nature 521 (7553), 436-444, 2015</div></td></tr></tbody></table>';
 const scholarProfile = await run("https://scholar.google.com/citations?user=test", scholarProfileHtml, 900);
@@ -381,6 +404,11 @@ assert.ok([...publisherArticleDoc.querySelectorAll("#publisher-article .rank-ass
 const publisherHome = await run("https://www.nature.com/", "<main><h1>Nature</h1></main>", 300);
 assert.equal(publisherHome.dom.window.document.querySelector("#rank-assistant-filter-host"), null, "Publisher homepages without papers must not create the filter UI");
 assert.equal(publisherHome.dom.window.document.documentElement.dataset.paperRankStatus, "idle", "Publisher homepages must not keep a broad DOM observer running");
+
+const issnOnlyHome = await run("https://academic.oup.com/jcr", '<main id="issn-home"><div>Print ISSN 0093-5301</div></main>', 900);
+const issnOnlyLabels = [...issnOnlyHome.dom.window.document.querySelectorAll("#issn-home .rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(issnOnlyLabels.includes("UTD24"), JSON.stringify(issnOnlyLabels));
+assert.ok(issnOnlyLabels.includes("FT50"), JSON.stringify(issnOnlyLabels));
 
 const english = await run("https://scholar.google.com/scholar?q=nature", scholarHtml, 900, { language: "en" });
 const englishDoc = english.dom.window.document;
@@ -625,6 +653,13 @@ const researchGateDoc = researchGate.dom.window.document;
 assert.ok(researchGateDoc.querySelector("#researchgate-article h1 + .rank-assistant-row"), "ResearchGate public article metadata must be supported when exposed");
 assert.ok([...researchGateDoc.querySelectorAll(".rank-assistant-badge")].some((node) => node.textContent === "JCR Q1"));
 
+const researchGateProfileHtml = '<main><section aria-label="Featured research"><article class="publication-item" id="rg-nature"><h3><a href="/publication/1_nature">Nature paper</a></h3><a href="/journal/Nature">Nature</a></article><article class="publication-item" id="rg-management"><h3><a href="/publication/2_management">Management paper</a></h3><a href="/journal/Management-Science">Management Science</a></article></section></main>';
+const researchGateProfile = await run("https://www.researchgate.net/profile/Example-Researcher", researchGateProfileHtml, 900);
+const rgProfileDoc = researchGateProfile.dom.window.document;
+assert.ok(rgProfileDoc.querySelector("#rg-nature .rank-assistant-row"), "ResearchGate profile cards must recognize their own journal");
+assert.ok(rgProfileDoc.querySelector('#rg-management .rank-assistant-badge[data-kind="utd24"]'), "ResearchGate profile cards must show business rankings");
+assert.equal(rgProfileDoc.querySelectorAll('#rg-nature .rank-assistant-badge[data-kind="utd24"]').length, 0, "ResearchGate cards must not inherit a neighboring venue");
+
 const recoveredHtml = '<div id="completesearch-publs"><div class="body"><p>found 2405 matches</p><ul class="error"><li>service temporarily not available</li></ul></div></div>';
 const recovered = await run("https://dblp.org/search?q=long+tail", recoveredHtml, 2200);
 assert.equal(recovered.apiFetches, 1);
@@ -733,7 +768,7 @@ for (const pattern of manifestMatches) {
 const publisherPatterns = manifestMatches.filter((pattern) => {
   const host = new URL(canonicalManifestUrl(pattern)).hostname;
   return !/(^|\.)dblp\.(org|uni-trier\.de|dagstuhl\.de)$/.test(host)
-    && !["scholar.google.com", "scholar.googleusercontent.com", "arxiv.org", "pubmed.ncbi.nlm.nih.gov", "www.semanticscholar.org", "semanticscholar.org", "openalex.org", "www.openalex.org", "kns.cnki.net", "kns8.cnki.net", "s.wanfangdata.com.cn", "www.aminer.cn", "aminer.cn", "xueshu.baidu.com"].includes(host);
+    && !["scholar.google.com", "scholar.googleusercontent.com", "arxiv.org", "pubmed.ncbi.nlm.nih.gov", "www.semanticscholar.org", "semanticscholar.org", "openalex.org", "www.openalex.org", "kns.cnki.net", "kns8.cnki.net", "s.wanfangdata.com.cn", "www.aminer.cn", "aminer.cn", "xueshu.baidu.com", "www.researchgate.net", "researchgate.net"].includes(host);
 });
 for (const pattern of publisherPatterns) {
   const url = canonicalManifestUrl(pattern).replace("/search?q=manifest-matrix", "/article/manifest-matrix");
@@ -741,6 +776,15 @@ for (const pattern of publisherPatterns) {
   const page = await run(url, detailHtml, 220);
   const labels = [...page.dom.window.document.querySelectorAll("#matrix-detail .rank-assistant-badge")].map((node) => node.textContent);
   assert.ok(labels.includes("JCR Q1"), pattern + " did not recognize article-detail metadata");
+}
+
+for (const host of ["www.researchgate.net", "researchgate.net"]) {
+  const detailHtml = '<head><meta name="citation_journal_title" content="Nature"></head><body><main id="rg-detail"><h1>Known ResearchGate paper</h1><a href="/journal/Nature">Nature</a></main></body>';
+  const page = await run(`https://${host}/publication/123_known-paper`, detailHtml, 300);
+  const labels = [...page.dom.window.document.querySelectorAll("#rg-detail .rank-assistant-badge")].map((node) => node.textContent);
+  assert.ok(labels.includes("JCR Q1"), `${host} did not recognize publication-detail metadata`);
+  assert.equal(page.dom.window.document.querySelectorAll("#rg-detail .rank-assistant-row").length, 1,
+    `${host} must render one badge row on a publication page`);
 }
 const diverseVenueCases = [
   { venue: "IEEE Transactions on Pattern Analysis and Machine Intelligence", expected: ["CCF A", "\u4e2d\u79d1\u9662 1\u533a Top", "JCR Q1", "SCI/SCIE", "EI"], kind: "journal" },

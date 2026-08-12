@@ -112,7 +112,9 @@
     "来源详情": "Source details",
     "期刊详情": "Journal details",
     "会议详情": "Conference details",
-    "重试": "Retry"
+    "重试": "Retry",
+    "UT Dallas Top 100 Business School Research Rankings 使用的 24 本商科期刊目录。": "The 24-journal set used by the UT Dallas Top 100 Business School Research Rankings.",
+    "Financial Times 全球商学院研究排名使用的 FT50 期刊目录。": "The FT50 journal list used in the Financial Times business school research ranking."
   });
 
   const catalogs = new Map();

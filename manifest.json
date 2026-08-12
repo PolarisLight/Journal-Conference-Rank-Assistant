@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "zh_CN",
   "name": "__MSG_extensionName__",
-  "version": "0.11.2",
+  "version": "0.12.0",
   "description": "__MSG_extensionDescription__",
   "browser_specific_settings": {
     "gecko": {
@@ -31,6 +31,7 @@
     "https://dblp.dagstuhl.de/*",
     "https://*.dblp.dagstuhl.de/*",
     "https://api.crossref.org/*",
+    "https://eutils.ncbi.nlm.nih.gov/*",
     "https://raw.githubusercontent.com/*"
   ],
   "action": {
@@ -77,6 +78,9 @@
         "https://journals.plos.org/*",
         "https://*.biomedcentral.com/*",
         "https://*.emerald.com/*",
+        "https://*.emeraldgrouppublishing.com/*",
+        "https://myscp.org/*",
+        "https://*.myscp.org/*",
         "https://*.science.org/*",
         "https://*.cell.com/*",
         "https://journals.aps.org/*",
@@ -107,6 +111,8 @@
       "js": [
         "extension/lib/normalizer.js",
         "extension/lib/i18n.js",
+        "extension/data/business-rankings.js",
+        "extension/data/issn-index.js",
         "extension/content/content-v7.js",
         "extension/content/filter-ui.js"
       ],

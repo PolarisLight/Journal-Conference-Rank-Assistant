@@ -24,6 +24,7 @@
 - 中科院大类分区与 Top 合并显示，例如 `中科院 1区 Top`
 - JCR Q1-Q4、影响因子与 Web of Science 收录类型
 - CSSCI、北大核心、Ei Compendex、新锐分区与当前预警名单
+- UTD24 与 FT50 商科期刊名单
 - 期刊详情包含规范名称、发行商、研究方向、ISSN、数据年份与来源
 - 可拖动的筛选按钮，支持按索引、分区和等级保留论文
 - 浅色、深色、跟随系统三种浮层主题
@@ -45,6 +46,8 @@
 | 北大核心 | 中文核心期刊 | 2023 |
 | Ei Compendex | 来源期刊、会议论文集 | 2026-07-09 |
 | 中科院预警 | 仅当前预警名单 | 2025 |
+| UTD24 | 商学院科研排名采用的 24 本期刊 | 当前名单 |
+| FT50 | Financial Times 商科期刊名单 | 2026-04 |
 
 本地目录当前包含 **35,093** 条期刊与会议记录。SCI、SCIE、SSCI、CSSCI、北大核心与 EI 是不同的收录或目录体系，本身不是另一套 Q1-Q4 分区。“SCI Q1”或“SSCI Q1”通常指 JCR 分区，因此插件只在 JCR 标签中显示 Q1-Q4。
 
@@ -58,12 +61,12 @@ ResearchGate 仅在公开论文页提供标准期刊元数据时显示标签。
 
 | 浏览器 | 安装包 | 说明 |
 | --- | --- | --- |
-| Chrome / Chromium | [在 Chrome Web Store 安装](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | 商店当前为 0.11.1；0.11.2 正在审核 |
-| Firefox | [在 Firefox Add-ons 安装](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | 0.11.2 已发布，Mozilla 官方签名并支持自动更新 |
+| Chrome / Chromium | [在 Chrome Web Store 安装](https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm) | 商店版本由 Chrome Web Store 自动更新 |
+| Firefox | [在 Firefox Add-ons 安装](https://addons.mozilla.org/addon/journal-conf-rank-assistant) | Mozilla 官方签名并支持自动更新 |
 
 Chrome 与 Firefox 版本均已在对应浏览器的官方扩展商店正式上架。
 
-需要直接下载安装包时，可前往 [GitHub Release v0.11.2](https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases/tag/v0.11.2)。
+需要直接下载安装包时，可前往 [GitHub Releases](https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases)。
 
 ## 支持项目
 
@@ -93,6 +96,7 @@ Chrome 与 Firefox 版本均已在对应浏览器的官方扩展商店正式上�
 
 - 检查并下载本仓库发布的签名数据库更新
 - DBLP 结果页临时不可用时调用 DBLP 官方 JSON 接口恢复结果
+- PubMed 页面缺少完整期刊名时，按 PMID 调用 NCBI 官方摘要接口补全期刊元数据
 - 缺少发行商或研究方向时按名称或 ISSN 查询 Crossref，结果在本地缓存 30 天
 
 插件每 7 天检查一次更新，但不会自动替换数据库。只有用户点击更新按钮后，插件才会下载加密的 `.prdb` 数据包，校验 SHA-256 和 ECDSA P-256 签名，再以当前扩展实例的 AES-GCM 密钥保存。
@@ -120,6 +124,12 @@ node scripts/build_signed_update.mjs 2026.07.13.2
 ## 数据与名称说明
 
 基础 CCF、JCR、中科院分区、新锐 2026 与最新预警名单来自 GPL-3.0 授权的 [`hitfyd/ShowJCR`](https://github.com/hitfyd/ShowJCR) 数据导出，并保留上游版本信息。预警数据仅保留 2025 最新名单。
+
+UTD24 与 FT50 分别依据 [UT Dallas 官方期刊名单](https://jindal.utdallas.edu/news/2026-utd-top-100-business-school-research-rankings/)和 [Financial Times FT50 名单](https://www.ft.com/ft50-journals)整理。ABS/AJG 数据因暂未确认可再分发授权，未纳入安装包。
+
+## 贡献者
+
+- Zining Wang — 商科期刊功能需求、跨站兼容性测试与问题反馈
 
 本项目与相关评价机构、数据库、搜索网站及出版商均无隶属或官方合作关系。等级、分区、收录与影响因子仅供检索辅助，正式评价或投稿前请以对应机构当年发布的信息为准。
 

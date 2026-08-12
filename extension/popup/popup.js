@@ -4,6 +4,7 @@ const I18N = globalThis.RankAssistantI18n;
 const SETTINGS = {
   enabled: true, showCcf: true, showCas: true, showJcr: true,
   showIf: true, showWos: true, showTop: true, showCssci: true, showPku: true, showEi: true,
+  showUtd24: true, showFt50: true,
   showXinrui: true, showWarning: true,
   autoCheckUpdates: true, language: "zh-CN", colorTheme: "light", colorPalette: "vivid"
 };
