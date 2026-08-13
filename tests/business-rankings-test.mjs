@@ -6,6 +6,7 @@ const context = { globalThis: null };
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync("extension/data/business-rankings.js", "utf8"), context);
+vm.runInContext(fs.readFileSync("extension/data/ajg-2024.js", "utf8"), context);
 vm.runInContext(fs.readFileSync("extension/data/issn-index.js", "utf8"), context);
 
 const rankings = context.RankAssistantBusinessRankings;
@@ -53,12 +54,19 @@ for (const [issn, target] of Object.entries(issnIndex).slice(0, 1000)) {
   assert.ok(Number.isInteger(target[1]) && target[1] >= 0);
 }
 
-assert.equal(fs.existsSync("extension/data/ajg-2024.js"), false,
-  "Unlicensed AJG mirror data must not enter the distributable extension");
+const ajg = context.RankAssistantAjg2024;
+assert.equal(ajg.version, "AJG 2024");
+assert.equal(ajg.count, 1635, "AJG 2024 must contain the complete 1,635-title list");
+assert.equal(ajg.match("Academy of Management Journal")?.rating, "4*");
+assert.equal(ajg.match("Aslib Journal of Information Management")?.rating, "1");
+assert.equal(ajg.match("Tourism Management")?.rating, "4");
+assert.equal(ajg.match("A paper about Marketing"), null, "Paper titles must not inherit short AJG journal names");
+assert.equal(ajg.match("Journal of Marketing Research Letters"), null, "Longer unlisted journals must not inherit AJG ratings");
+assert.equal(ajg.match("Analysis of results"), null);
 
 console.log(JSON.stringify({
   utd24: rankings.counts.utd24,
   ft50: rankings.counts.ft50,
   issnEntries: Object.keys(issnIndex).length,
-  ajgPublished: false
+  ajg2024: ajg.count
 }));

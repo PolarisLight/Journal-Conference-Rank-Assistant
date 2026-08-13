@@ -340,5 +340,32 @@
   },
   "ui_financial_times_ft50": {
     "message": "The FT50 journal list used in the Financial Times business school research ranking."
+  },
+  "ui_academic_journal_guide_abs": {
+    "message": "The Academic Journal Guide rating published by the Chartered Association of Business Schools (commonly called ABS); 4* is the highest rating."
+  },
+  "ui_use_a_field_preset_then_adjust_individual_indexes": {
+    "message": "Use a field preset, then adjust individual indexes"
+  },
+  "ui_badge_presets": {
+    "message": "Badge presets"
+  },
+  "ui_custom": {
+    "message": "Custom"
+  },
+  "ui_computer_science": {
+    "message": "Computer science"
+  },
+  "ui_science_medicine": {
+    "message": "Science & medicine"
+  },
+  "ui_social_science_business": {
+    "message": "Social science & business"
+  },
+  "ui_chinese_journals": {
+    "message": "Chinese journals"
+  },
+  "ui_all": {
+    "message": "All"
   }
 }

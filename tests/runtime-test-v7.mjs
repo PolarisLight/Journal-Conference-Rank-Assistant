@@ -7,6 +7,7 @@ const root = process.argv[2] || process.cwd();
 const normalizer = fs.readFileSync(path.join(root, "extension/lib/normalizer.js"), "utf8");
 const i18n = fs.readFileSync(path.join(root, "extension/lib/i18n.js"), "utf8");
 const businessRankings = fs.readFileSync(path.join(root, "extension/data/business-rankings.js"), "utf8");
+const ajgRankings = fs.readFileSync(path.join(root, "extension/data/ajg-2024.js"), "utf8");
 const issnIndex = fs.readFileSync(path.join(root, "extension/data/issn-index.js"), "utf8");
 const contentScript = fs.readFileSync(path.join(root, "extension/content/content-v7.js"), "utf8");
 const filterUi = fs.readFileSync(path.join(root, "extension/content/filter-ui.js"), "utf8");
@@ -31,7 +32,7 @@ for (const palette of ["soft", "vivid", "colorblind"]) {
     ["jcr-q1", "jcr-q2", "jcr-q3", "jcr-q4"],
     ["xinrui-1", "xinrui-2", "xinrui-3", "xinrui-4"],
     ["cssci-source", "cssci-extended"],
-    ["utd24", "ft50"]
+    ["utd24", "ft50", "abs"]
   ]) {
     const colors = tokens.map((token) => paletteToken(palette, token));
     assert.equal(new Set(colors).size, colors.length, `${palette} must distinguish ${tokens.join(", ")}`);
@@ -145,7 +146,34 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
           const unified = records.map((record, index) => lineages.get(message.items[index].key) || record);
           callback({ ok: true, records: unified, shardCount: keys.size, mode: "background-batch" });
           return;
-        }        if (message.type === "rank-assistant-dblp-recover") {
+        }
+        if (message.type === "rank-assistant-doi-venue") {
+          callback({ ok: true, cached: false, venue: { title: "Management Science", issns: ["0025-1909"], doi: message.doi, type: "journal-article" } });
+          return;
+        }
+        if (message.type === "rank-assistant-doi-venues") {
+          const venues = {};
+          for (const doi of message.dois) {
+            if (doi.toLowerCase() === "10.1287/mnsc.2022.4644") venues[doi.toLowerCase()] = { title: "Management Science", issns: ["0025-1909"], doi, type: "journal-article" };
+            if (doi.toLowerCase() === "10.5555/unlisted") venues[doi.toLowerCase()] = { title: "Example Unlisted Journal", issns: ["1234-5678"], doi, type: "journal-article" };
+            if (doi.toLowerCase() === "10.5555/book") venues[doi.toLowerCase()] = { title: "Example Research Book", issns: [], doi, type: "book-chapter" };
+          }
+          callback({ ok: true, venues });
+          return;
+        }
+        if (message.type === "rank-assistant-title-venues") {
+          const venues = {};
+          for (const title of message.titles) {
+            const key = title.normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+            if (/paper resolved only by title/i.test(title)) venues[key] = { title: "Management Science", issns: ["0025-1909"], type: "journal-article", matchedBy: "title", titleScore: 1 };
+            if (/unranked journal paper/i.test(title)) venues[key] = { title: "Example Unlisted Journal", issns: ["1234-5678"], type: "journal-article", matchedBy: "title", titleScore: 1 };
+            if (/research book chapter/i.test(title)) venues[key] = { title: "Example Research Book", issns: [], type: "book-chapter", matchedBy: "title", titleScore: 1 };
+          }
+          if (runOptions.titleVenueDelay) setTimeout(() => callback({ ok: true, venues }), runOptions.titleVenueDelay);
+          else callback({ ok: true, venues });
+          return;
+        }
+        if (message.type === "rank-assistant-dblp-recover") {
           apiFetches += 1;
           backgroundRecoveryMessages += 1;
           if (runOptions.backgroundRecoveryFailure) {
@@ -211,6 +239,7 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   dom.window.eval(normalizer);
   dom.window.eval(i18n);
   dom.window.eval(businessRankings);
+  dom.window.eval(ajgRankings);
   dom.window.eval(issnIndex);
   dom.window.eval(contentScript);
   dom.window.eval(filterUi);
@@ -366,6 +395,7 @@ const businessScholar = await run("https://scholar.google.com/scholar?q=business
 const businessLabels = [...businessScholar.dom.window.document.querySelectorAll("#business-paper .rank-assistant-badge")].map((node) => node.textContent);
 assert.ok(businessLabels.includes("UTD24"), JSON.stringify(businessLabels));
 assert.ok(businessLabels.includes("FT50"), JSON.stringify(businessLabels));
+assert.ok(businessLabels.includes("ABS 4*"), JSON.stringify(businessLabels));
 
 const unsafeBusinessHtml = '<div class="gs_r gs_or gs_scl" id="unsafe-business"><div class="gs_ri"><h3 class="gs_rt"><a>A paper about Management Science</a></h3><div class="gs_a">A Author - Analysis of results, 2026 - example.org</div></div></div>';
 const unsafeBusiness = await run("https://scholar.google.com/scholar?q=unsafe", unsafeBusinessHtml, 900);
@@ -409,6 +439,51 @@ const issnOnlyHome = await run("https://academic.oup.com/jcr", '<main id="issn-h
 const issnOnlyLabels = [...issnOnlyHome.dom.window.document.querySelectorAll("#issn-home .rank-assistant-badge")].map((node) => node.textContent);
 assert.ok(issnOnlyLabels.includes("UTD24"), JSON.stringify(issnOnlyLabels));
 assert.ok(issnOnlyLabels.includes("FT50"), JSON.stringify(issnOnlyLabels));
+assert.ok(issnOnlyLabels.includes("ABS 4*"), JSON.stringify(issnOnlyLabels));
+
+const emeraldHistoricalIssnHtml = '<head><title>Aslib Journal of Information Management | Emerald Publishing</title></head><body><header><div id="emerald-current">Aslib Journal of Information Management</div></header><main><p>This journal was previously published as Aslib Proceedings until 2013. Previous ISSN 0001-253X.</p></main></body>';
+const emeraldHistoricalIssn = await run("https://www.emerald.com/ajim", emeraldHistoricalIssnHtml, 900);
+const emeraldLabels = [...emeraldHistoricalIssn.dom.window.document.querySelectorAll(".rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(emeraldLabels.includes("ABS 1"), "Current Emerald title must outrank a historical ISSN: " + JSON.stringify(emeraldLabels));
+assert.ok(emeraldHistoricalIssn.dom.window.document.querySelector("#emerald-current + .rank-assistant-row"), "Emerald badges must attach to the current journal name");
+
+for (const challenge of [
+  {
+    url: "https://www.sciencedirect.com/journal/tourism-management",
+    html: '<head><title>Please wait...</title></head><body><main><div class="card-content"><h1>Are you a robot?</h1><p>Please confirm you are a human by completing the captcha challenge below.</p></div></main></body>'
+  },
+  {
+    url: "https://academic.oup.com/qje",
+    html: '<head><title>请稍候…</title></head><body><main><h1>academic.oup.com</h1><p>正在进行安全验证</p><p>Ray ID: test</p><p>由 Cloudflare 提供安全服务</p></main></body>'
+  }
+]) {
+  const page = await run(challenge.url, challenge.html, 300);
+  assert.equal(page.dom.window.document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").length, 0,
+    challenge.url + " access challenge must not be treated as a journal page");
+}
+
+const dataDomeChallenge = await run(
+  "https://www.researchgate.net/publication/123_blocked",
+  "<head><title>researchgate.net</title></head><body><script>var dd={'rt':'i','cid':'test'};</script></body>",
+  300
+);
+assert.equal(dataDomeChallenge.dom.window.document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").length, 0,
+  "A DataDome interstitial must not be treated as a ResearchGate publication");
+
+const researchGateRestricted = await run(
+  "https://www.researchgate.net/publication/123_restricted",
+  "<head><title>Access restricted</title></head><body><main><h1>Access restricted</h1><p>We've detected unusual activity from your network.</p></main></body>",
+  300
+);
+assert.equal(researchGateRestricted.dom.window.document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").length, 0,
+  "A ResearchGate access-restricted page must not receive fabricated publication badges");
+
+const delayedChallenge = await run("https://academic.oup.com/jcr", '<main><div>Print ISSN 0093-5301</div></main>', 900);
+assert.ok(delayedChallenge.dom.window.document.querySelector(".rank-assistant-row"), "Precondition: journal page was initially recognized");
+delayedChallenge.dom.window.document.body.innerHTML = '<main><h1>academic.oup.com</h1><p>正在进行安全验证</p><p>Ray ID: delayed</p><p>Cloudflare</p></main>';
+await new Promise((resolve) => setTimeout(resolve, 250));
+assert.equal(delayedChallenge.dom.window.document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").length, 0,
+  "A challenge injected after initial rendering must remove stale labels");
 
 const english = await run("https://scholar.google.com/scholar?q=nature", scholarHtml, 900, { language: "en" });
 const englishDoc = english.dom.window.document;
@@ -653,12 +728,57 @@ const researchGateDoc = researchGate.dom.window.document;
 assert.ok(researchGateDoc.querySelector("#researchgate-article h1 + .rank-assistant-row"), "ResearchGate public article metadata must be supported when exposed");
 assert.ok([...researchGateDoc.querySelectorAll(".rank-assistant-badge")].some((node) => node.textContent === "JCR Q1"));
 
+const researchGateDoiHtml = '<head><meta name="citation_title" content="From the Editor"><meta name="citation_doi" content="10.1287/mnsc.2022.4644"></head><body><main id="researchgate-doi"><h1>From the Editor—January 2023</h1><div>Article · December 2022</div><a href="https://doi.org/10.1287/mnsc.2022.4644">DOI</a></main></body>';
+const researchGateDoi = await run("https://www.researchgate.net/publication/366305997_From_the_Editor-January_2023", researchGateDoiHtml, 900);
+const researchGateDoiLabels = [...researchGateDoi.dom.window.document.querySelectorAll("#researchgate-doi .rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(researchGateDoiLabels.includes("UTD24"), "ResearchGate DOI fallback must resolve the venue: " + JSON.stringify(researchGateDoiLabels));
+assert.ok(researchGateDoiLabels.includes("ABS 4*"), "ResearchGate DOI fallback must render AJG: " + JSON.stringify(researchGateDoiLabels));
+
 const researchGateProfileHtml = '<main><section aria-label="Featured research"><article class="publication-item" id="rg-nature"><h3><a href="/publication/1_nature">Nature paper</a></h3><a href="/journal/Nature">Nature</a></article><article class="publication-item" id="rg-management"><h3><a href="/publication/2_management">Management paper</a></h3><a href="/journal/Management-Science">Management Science</a></article></section></main>';
 const researchGateProfile = await run("https://www.researchgate.net/profile/Example-Researcher", researchGateProfileHtml, 900);
 const rgProfileDoc = researchGateProfile.dom.window.document;
 assert.ok(rgProfileDoc.querySelector("#rg-nature .rank-assistant-row"), "ResearchGate profile cards must recognize their own journal");
 assert.ok(rgProfileDoc.querySelector('#rg-management .rank-assistant-badge[data-kind="utd24"]'), "ResearchGate profile cards must show business rankings");
+assert.equal(rgProfileDoc.querySelector('#rg-management .rank-assistant-badge[data-kind="abs"]')?.textContent, "ABS 4*", "ResearchGate profile cards must show AJG ratings");
 assert.equal(rgProfileDoc.querySelectorAll('#rg-nature .rank-assistant-badge[data-kind="utd24"]').length, 0, "ResearchGate cards must not inherit a neighboring venue");
+
+const researchGateKeywordHtml = '<main><article class="publication-item" id="rg-keyword-only"><h3><a href="/publication/3_keyword">The influence of management science on business law</a></h3><div>Article · July 2026 · DOI: 10.0000/example</div><p>No publication venue is exposed on this result card.</p></article></main>';
+const researchGateKeyword = await run("https://www.researchgate.net/search/publication?q=Management%20Science", researchGateKeywordHtml, 900);
+assert.equal(researchGateKeyword.dom.window.document.querySelectorAll("#rg-keyword-only .rank-assistant-row").length, 0,
+  "ResearchGate keyword hits without an explicit venue must not receive guessed labels");
+
+const researchGateSearchDoiHtml = '<main><article class="publication-item" id="rg-doi-card"><h3><a href="/publication/4_doi">A paper whose card omits the journal</a></h3><div>Article · January 2023</div><div>DOI: 10.1287/mnsc.2022.4644ISBN: 1234-5678</div></article><article class="publication-item" id="rg-no-doi-card"><h3><a href="/publication/5_no_doi">A card with no source identifier</a></h3><div>Article · January 2023</div></article></main>';
+const researchGateSearchDoi = await run("https://www.researchgate.net/search/publication?q=operations", researchGateSearchDoiHtml, 900);
+const researchGateSearchLabels = [...researchGateSearchDoi.dom.window.document.querySelectorAll("#rg-doi-card .rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(researchGateSearchLabels.includes("UTD24"), "ResearchGate DOI cards must resolve their venue: " + JSON.stringify(researchGateSearchLabels));
+assert.ok(researchGateSearchLabels.includes("ABS 4*"), "ResearchGate DOI cards must render AJG: " + JSON.stringify(researchGateSearchLabels));
+assert.equal(researchGateSearchDoi.dom.window.document.querySelectorAll("#rg-no-doi-card .rank-assistant-row").length, 0,
+  "ResearchGate cards without a source or DOI must stay unlabelled");
+
+const researchGateUnrankedHtml = '<main><article class="publication-item" id="rg-unranked"><h3><a href="/publication/6_unranked">Unranked journal paper</a></h3><div>Article · January 2026 · DOI: 10.5555/unlisted</div></article><article class="publication-item" id="rg-book"><h3><a href="/publication/7_book">Research book chapter</a></h3><div>Chapter · January 2026 · DOI: 10.5555/book</div></article></main>';
+const researchGateUnranked = await run("https://www.researchgate.net/search/publication?q=unranked", researchGateUnrankedHtml, 900);
+const researchGateUnrankedDoc = researchGateUnranked.dom.window.document;
+assert.equal(researchGateUnrankedDoc.querySelector("#rg-unranked .rank-assistant-badge")?.textContent, "CCF None",
+  "A Crossref-confirmed but locally unranked journal must be distinguished from an unresolved card");
+assert.equal(researchGateUnrankedDoc.querySelectorAll("#rg-book .rank-assistant-row").length, 0,
+  "A Crossref book or chapter must not receive a journal/conference rank badge");
+
+const researchGateTitleFallbackHtml = '<main><article class="publication-item" id="rg-title-fallback"><h3><a href="publication/8_title_only">A paper resolved only by title</a></h3><div>Article · January 2023</div></article></main>';
+const researchGateTitleFallback = await run("https://www.researchgate.net/search/publication?q=title", researchGateTitleFallbackHtml, 900);
+const researchGateTitleFallbackLabels = [...researchGateTitleFallback.dom.window.document.querySelectorAll("#rg-title-fallback .rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(researchGateTitleFallbackLabels.includes("UTD24"), "A ResearchGate card without DOI must recover its catalog venue from an exact Crossref title match");
+assert.ok(researchGateTitleFallbackLabels.includes("ABS 4*"), "Title fallback must enter the same AJG matching pipeline as detail pages");
+
+const researchGateProgressiveHtml = '<main><article class="publication-item" id="rg-fast-doi"><h3><a href="publication/9_fast">Fast DOI paper</a></h3><div>DOI: 10.1287/mnsc.2022.4644</div></article><article class="publication-item" id="rg-slow-title"><h3><a href="publication/10_slow">A paper resolved only by title</a></h3></article></main>';
+const researchGateProgressive = await run("https://www.researchgate.net/search/publication?q=progressive", researchGateProgressiveHtml, 250, {}, false, { titleVenueDelay: 900 });
+assert.ok(researchGateProgressive.dom.window.document.querySelector("#rg-fast-doi .rank-assistant-badge[data-kind='utd24']"),
+  "A DOI-resolved ResearchGate card must paint before a slower title fallback finishes");
+
+const pubmedDetailHtml = '<head><meta name="citation_journal_title" content="Journal of Occupational Health Psychology"><meta name="citation_issn" content="1076-8998"></head><body><main id="pubmed-detail"><h1 class="heading-title">Editorial</h1><div class="publication-types">J Occup Health Psychol.</div></main></body>';
+const pubmedDetail = await run("https://pubmed.ncbi.nlm.nih.gov/26752239/", pubmedDetailHtml, 900);
+const pubmedDetailLabels = [...pubmedDetail.dom.window.document.querySelectorAll("#pubmed-detail .rank-assistant-badge")].map((node) => node.textContent);
+assert.ok(pubmedDetailLabels.includes("ABS 4"), "PubMed article details must resolve AJG journals: " + JSON.stringify(pubmedDetailLabels));
+assert.ok(pubmedDetail.dom.window.document.querySelector("#pubmed-detail h1 + .rank-assistant-row"), "PubMed article badges must sit after the paper title");
 
 const recoveredHtml = '<div id="completesearch-publs"><div class="body"><p>found 2405 matches</p><ul class="error"><li>service temporarily not available</li></ul></div></div>';
 const recovered = await run("https://dblp.org/search?q=long+tail", recoveredHtml, 2200);
@@ -834,3 +954,4 @@ console.log(JSON.stringify({
   manifestMatrix: { patterns: manifestMatrix.length, publisherSearchPages: publisherPatterns.length, publisherDetailPages: publisherPatterns.length },
   venueDiversity: { cases: diverseVenueCases.length, journals: diverseVenueCases.filter((item) => item.kind === "journal").length, conferences: diverseVenueCases.filter((item) => item.kind === "conference").length, chineseJournals: diverseVenueCases.filter((item) => item.kind === "chinese").length }
 }, null, 2));
+process.exit(0);

@@ -8,6 +8,7 @@ import hashlib
 import json
 import shutil
 import struct
+import sys
 import tempfile
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
@@ -25,6 +26,9 @@ def manifest(name: str) -> dict:
 CHROME_MANIFEST = manifest("manifest.json")
 FIREFOX_MANIFEST = manifest("manifest.firefox.json")
 VERSION = CHROME_MANIFEST["version"]
+SUFFIX = "-" + sys.argv[1].strip("-") if len(sys.argv) > 1 and sys.argv[1].strip("-") else ""
+TEST_VARIANT = sys.argv[1].strip("-") if len(sys.argv) > 1 else ""
+STANDALONE_FIREFOX_TEST = TEST_VARIANT in {"ajg-standalone-test", "ajg-rg-test", "ajg-rg-search-test", "preset-test"}
 if FIREFOX_MANIFEST["version"] != VERSION:
     raise SystemExit("Chrome and Firefox manifest versions differ")
 
@@ -41,7 +45,13 @@ def extension_files() -> list[Path]:
 def populate(target: Path, firefox: bool) -> None:
     shutil.rmtree(target, ignore_errors=True)
     target.mkdir(parents=True)
-    selected = FIREFOX_MANIFEST if firefox else CHROME_MANIFEST
+    selected = json.loads(json.dumps(FIREFOX_MANIFEST if firefox else CHROME_MANIFEST))
+    if firefox and STANDALONE_FIREFOX_TEST:
+        selected["version"] = VERSION + (".7" if TEST_VARIANT == "preset-test" else ".6")
+        selected["name"] = "期刊会议等级与分区助手（功能测试版）" if TEST_VARIANT == "preset-test" else "期刊会议等级与分区助手（AJG 测试版）"
+        selected["browser_specific_settings"]["gecko"]["id"] = (
+            "journal-conference-rank-assistant-ajg-test@polarislight.github.io"
+        )
     (target / "manifest.json").write_text(
         json.dumps(selected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -159,19 +169,19 @@ def build_amo_source(firefox_dir: Path, output: Path) -> None:
 
 
 OUTPUT.mkdir(parents=True, exist_ok=True)
-chrome_dir = OUTPUT / f"journal-conf-rank-assistant-chrome-v{VERSION}-unpacked"
-firefox_dir = OUTPUT / f"journal-conf-rank-assistant-firefox-v{VERSION}-unpacked"
+chrome_dir = OUTPUT / f"journal-conf-rank-assistant-chrome-v{VERSION}{SUFFIX}-unpacked"
+firefox_dir = OUTPUT / f"journal-conf-rank-assistant-firefox-v{VERSION}{SUFFIX}-unpacked"
 populate(chrome_dir, firefox=False)
 populate(firefox_dir, firefox=True)
 
-chrome_zip = OUTPUT / f"journal-conf-rank-assistant-chrome-v{VERSION}.zip"
-firefox_xpi = OUTPUT / f"journal-conf-rank-assistant-firefox-v{VERSION}.xpi"
-source_zip = OUTPUT / f"journal-conf-rank-assistant-firefox-source-v{VERSION}.zip"
+chrome_zip = OUTPUT / f"journal-conf-rank-assistant-chrome-v{VERSION}{SUFFIX}.zip"
+firefox_xpi = OUTPUT / f"journal-conf-rank-assistant-firefox-v{VERSION}{SUFFIX}.xpi"
+source_zip = OUTPUT / f"journal-conf-rank-assistant-firefox-source-v{VERSION}{SUFFIX}.zip"
 write_zip(chrome_dir, chrome_zip)
 write_zip(firefox_dir, firefox_xpi)
 build_amo_source(firefox_dir, source_zip)
 
-checksums = OUTPUT / f"SHA256SUMS-v{VERSION}.txt"
+checksums = OUTPUT / f"SHA256SUMS-v{VERSION}{SUFFIX}.txt"
 artifacts = [chrome_zip, firefox_xpi, source_zip]
 checksums.write_text("".join(f"{sha256(path)}  {path.name}\n" for path in artifacts), encoding="utf-8")
 print(json.dumps({"version": VERSION, "artifacts": [str(path) for path in [*artifacts, checksums]]}, ensure_ascii=False, indent=2))

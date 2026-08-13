@@ -68,6 +68,66 @@ assert.equal(dom.window.document.getElementById("showXinrui").checked, true);
 assert.equal(dom.window.document.getElementById("showWarning").checked, true);
 assert.equal(dom.window.document.getElementById("showUtd24").checked, true);
 assert.equal(dom.window.document.getElementById("showFt50").checked, true);
+assert.equal(dom.window.document.getElementById("showAbs").checked, true);
+assert.equal(dom.window.document.getElementById("presetState").textContent, "全部");
+assert.equal(dom.window.document.querySelector('[data-preset="all"]').getAttribute("aria-pressed"), "true");
+
+dom.window.document.querySelector('[data-preset="computer"]').click();
+assert.equal(dom.window.document.getElementById("showCcf").checked, true);
+assert.equal(dom.window.document.getElementById("showCas").checked, true);
+assert.equal(dom.window.document.getElementById("showJcr").checked, true);
+assert.equal(dom.window.document.getElementById("showEi").checked, true);
+assert.equal(dom.window.document.getElementById("showCssci").checked, false);
+assert.equal(dom.window.document.getElementById("showUtd24").checked, false);
+assert.equal(saved.showCcf, true);
+assert.equal(saved.showCssci, false);
+assert.equal(dom.window.document.getElementById("presetState").textContent, "计算机");
+
+dom.window.document.querySelector('[data-preset="science"]').click();
+assert.equal(dom.window.document.getElementById("showCas").checked, true);
+assert.equal(dom.window.document.getElementById("showJcr").checked, true);
+assert.equal(dom.window.document.getElementById("showCcf").checked, false);
+assert.equal(dom.window.document.getElementById("showCssci").checked, false);
+assert.equal(dom.window.document.getElementById("presetState").textContent, "理工医学");
+
+dom.window.document.querySelector('[data-preset="social"]').click();
+assert.equal(dom.window.document.getElementById("showCas").checked, false);
+assert.equal(dom.window.document.getElementById("showXinrui").checked, false);
+assert.equal(dom.window.document.getElementById("showWarning").checked, false);
+assert.equal(dom.window.document.getElementById("showTop").checked, false);
+assert.equal(dom.window.document.getElementById("showJcr").checked, true);
+assert.equal(dom.window.document.getElementById("showIf").checked, true);
+assert.equal(dom.window.document.getElementById("showWos").checked, true);
+assert.equal(dom.window.document.getElementById("showCssci").checked, true);
+assert.equal(dom.window.document.getElementById("showPku").checked, true);
+assert.equal(dom.window.document.getElementById("showUtd24").checked, true);
+assert.equal(dom.window.document.getElementById("showFt50").checked, true);
+assert.equal(dom.window.document.getElementById("showAbs").checked, true);
+assert.equal(dom.window.document.getElementById("showCcf").checked, false);
+assert.equal(dom.window.document.getElementById("showEi").checked, false);
+assert.equal(dom.window.document.getElementById("presetState").textContent, "社科商科");
+
+dom.window.document.querySelector('[data-preset="chinese"]').click();
+assert.equal(dom.window.document.getElementById("showCssci").checked, true);
+assert.equal(dom.window.document.getElementById("showPku").checked, true);
+assert.equal(dom.window.document.getElementById("showEi").checked, true);
+assert.equal(dom.window.document.getElementById("showUtd24").checked, false);
+assert.equal(dom.window.document.getElementById("showAbs").checked, false);
+assert.equal(dom.window.document.getElementById("presetState").textContent, "中文期刊");
+
+dom.window.document.querySelector('[data-preset="all"]').click();
+for (const id of ["showCcf", "showCas", "showXinrui", "showWarning", "showJcr", "showIf", "showWos", "showTop", "showCssci", "showPku", "showEi", "showUtd24", "showFt50", "showAbs"]) {
+  assert.equal(dom.window.document.getElementById(id).checked, true, `${id} should be enabled by the all preset`);
+}
+assert.equal(dom.window.document.getElementById("presetState").textContent, "全部");
+
+dom.window.document.querySelector('[data-preset="computer"]').click();
+
+const cssciToggle = dom.window.document.getElementById("showCssci");
+cssciToggle.checked = true;
+cssciToggle.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+assert.equal(saved.showCssci, true);
+assert.equal(dom.window.document.getElementById("presetState").textContent, "自定义");
 assert.match(dom.window.document.getElementById("installUpdates").textContent, /已替换/);
 console.log(JSON.stringify({ theme: saved.colorTheme, palette: saved.colorPalette, installMessage: true }));
 assert.equal(dom.window.document.querySelector(".filter-card"), null);
@@ -79,5 +139,8 @@ language.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.equal(saved.language, "en");
 assert.equal(dom.window.document.querySelector("h1").textContent, "Journal & Conference Rank Assistant");
+assert.equal(dom.window.document.querySelector('[data-preset="computer"]').textContent, "Computer science");
+assert.equal(dom.window.document.getElementById("presetState").textContent, "Custom");
 assert.equal(dom.window.document.getElementById("statusTitle").textContent, "Current data matches the latest baseline");
 assert.equal(dom.window.RankAssistantI18n.normalize("fr"), "zh-CN", "Unsupported languages must fall back to Chinese");
+dom.window.close();

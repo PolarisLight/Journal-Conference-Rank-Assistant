@@ -79,6 +79,22 @@ const fetch = async (url) => {
     return { ok: true, status: 200, arrayBuffer: async () => bytes.buffer };
   }
   if (value.includes("api.crossref.org")) {
+    if (value.includes("query.title=")) {
+      return responseJson({ message: { items: [{
+        DOI: "10.1287/mnsc.2022.4644",
+        title: ["A paper resolved only by title"],
+        "container-title": ["Management Science"],
+        ISSN: ["0025-1909"],
+        type: "journal-article"
+      }] } });
+    }
+    if (value.includes("/works/")) {
+      return responseJson({ message: {
+        "container-title": ["Management Science"],
+        ISSN: ["0025-1909"],
+        type: "journal-article"
+      } });
+    }
     return responseJson({ message: {
       title: "Computer",
       publisher: "Institute of Electrical and Electronics Engineers",
@@ -181,6 +197,17 @@ assert.equal(journal.ok, true);
 assert.equal(journal.metadata.publisher, "IEEE");
 const cached = await message({ type: "rank-assistant-journal-metadata", issns: ["0018-9162"], title: "Computer" });
 assert.equal(cached.cached, true);
+const doiVenue = await message({ type: "rank-assistant-doi-venue", doi: "https://doi.org/10.1287/mnsc.2022.4644" });
+assert.equal(doiVenue.ok, true);
+assert.equal(doiVenue.venue.title, "Management Science");
+assert.equal(doiVenue.venue.issns[0], "0025-1909");
+assert.equal(doiVenue.venue.type, "journal-article");
+const doiVenues = await message({ type: "rank-assistant-doi-venues", dois: ["10.1287/mnsc.2022.4644", "10.1287/mnsc.2022.4644"] });
+assert.equal(doiVenues.ok, true);
+assert.equal(doiVenues.venues["10.1287/mnsc.2022.4644"].title, "Management Science");
+const titleVenues = await message({ type: "rank-assistant-title-venues", titles: ["A paper resolved only by title"] });
+assert.equal(titleVenues.ok, true);
+assert.equal(titleVenues.venues["a paper resolved only by title"].title, "Management Science");
 const pubmed = await message({ type: "rank-assistant-pubmed-journals", pmids: ["12345678", "12345678", "bad"] });
 assert.equal(pubmed.ok, true);
 assert.equal(pubmed.summaries["12345678"].issn, "0162-8828");

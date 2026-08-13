@@ -17,6 +17,8 @@ const decryptedShardCache = new Map();
 const dblpRecoveryInFlight = new Map();
 const dblpRecoveryMemoryCache = new Map();
 const pubmedSummaryMemoryCache = new Map();
+const doiVenueMemoryCache = new Map();
+const titleVenueMemoryCache = new Map();
 
 function storageGet(defaults = null) {
   return new Promise((resolve) => chrome.storage.local.get(defaults, resolve));
@@ -748,6 +750,106 @@ async function lookupJournalMetadata(request) {
   return { ok: false, error: String(lastError?.message || "Crossref 未匹配到期刊") };
 }
 
+function normalizeDoi(value) {
+  return String(value || "").trim()
+    .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "")
+    .replace(/^doi\s*:\s*/i, "")
+    .replace(/(?:ISBN|ISSN|PMID|PMCID|CITATIONS?|READS?)[:\s].*$/i, "")
+    .replace(/[\s.,;:)>\]}]+$/g, "");
+}
+
+function normalizePaperTitle(value) {
+  return String(value || "").normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function paperTitleSimilarity(left, right) {
+  const a = normalizePaperTitle(left);
+  const b = normalizePaperTitle(right);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const aTokens = new Set(a.split(" ").filter((token) => token.length > 1));
+  const bTokens = new Set(b.split(" ").filter((token) => token.length > 1));
+  if (!aTokens.size || !bTokens.size) return 0;
+  let overlap = 0;
+  for (const token of aTokens) if (bTokens.has(token)) overlap += 1;
+  return (2 * overlap) / (aTokens.size + bTokens.size);
+}
+
+async function lookupDoiVenue(request) {
+  const doi = normalizeDoi(request?.doi);
+  if (!/^10\.\d{4,9}\/[\w.()/:;-]+$/i.test(doi)) return { ok: false, error: "invalid DOI" };
+  const key = doi.toLowerCase();
+  if (doiVenueMemoryCache.has(key)) return { ok: true, cached: true, venue: doiVenueMemoryCache.get(key) };
+  const payload = await fetchJson("https://api.crossref.org/works/" + encodeURIComponent(doi), 6500);
+  const message = payload?.message || {};
+  const titles = Array.isArray(message["container-title"]) ? message["container-title"] : [message["container-title"]];
+  const title = String(titles.find(Boolean) || "").trim();
+  const issns = Array.isArray(message.ISSN) ? message.ISSN.map(normalizeIssn).filter(Boolean) : [];
+  if (!title && !issns.length) return { ok: false, error: "Crossref did not return a venue" };
+  const venue = { title, issns, doi, type: String(message.type || "").trim() };
+  doiVenueMemoryCache.set(key, venue);
+  return { ok: true, cached: false, venue };
+}
+
+async function lookupDoiVenues(request) {
+  const dois = [...new Set((request?.dois || []).map(normalizeDoi).filter(Boolean))].slice(0, 20);
+  const venues = {};
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(4, dois.length) }, async () => {
+    while (cursor < dois.length) {
+      const doi = dois[cursor++];
+      try {
+        const response = await lookupDoiVenue({ doi });
+        if (response?.ok && response.venue) venues[doi.toLowerCase()] = response.venue;
+      } catch (_) {}
+    }
+  });
+  await Promise.all(workers);
+  return { ok: true, venues };
+}
+
+async function lookupTitleVenue(title) {
+  const normalized = normalizePaperTitle(title);
+  if (normalized.length < 12) return { ok: false, error: "title too short" };
+  if (titleVenueMemoryCache.has(normalized)) return { ok: true, cached: true, venue: titleVenueMemoryCache.get(normalized) };
+  const url = new URL("https://api.crossref.org/works");
+  url.searchParams.set("query.title", String(title).trim());
+  url.searchParams.set("rows", "3");
+  url.searchParams.set("select", "DOI,title,container-title,ISSN,type");
+  const payload = await fetchJson(url.toString(), 6500);
+  const candidates = Array.isArray(payload?.message?.items) ? payload.message.items : [];
+  const matched = candidates
+    .map((item) => ({ item, score: paperTitleSimilarity(title, Array.isArray(item.title) ? item.title[0] : item.title) }))
+    .filter(({ score }) => score >= 0.86)
+    .sort((left, right) => right.score - left.score)[0];
+  if (!matched) return { ok: false, error: "Crossref title did not match exactly enough" };
+  const message = matched.item;
+  const containers = Array.isArray(message["container-title"]) ? message["container-title"] : [message["container-title"]];
+  const venueTitle = String(containers.find(Boolean) || "").trim();
+  const issns = Array.isArray(message.ISSN) ? message.ISSN.map(normalizeIssn).filter(Boolean) : [];
+  if (!venueTitle && !issns.length) return { ok: false, error: "Crossref did not return a venue" };
+  const venue = { title: venueTitle, issns, doi: normalizeDoi(message.DOI), type: String(message.type || "").trim(), matchedBy: "title", titleScore: matched.score };
+  titleVenueMemoryCache.set(normalized, venue);
+  return { ok: true, cached: false, venue };
+}
+
+async function lookupTitleVenues(request) {
+  const titles = [...new Set((request?.titles || []).map((value) => String(value || "").trim()).filter(Boolean))].slice(0, 12);
+  const venues = {};
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(3, titles.length) }, async () => {
+    while (cursor < titles.length) {
+      const title = titles[cursor++];
+      try {
+        const response = await lookupTitleVenue(title);
+        if (response?.ok && response.venue) venues[normalizePaperTitle(title)] = response.venue;
+      } catch (_) {}
+    }
+  });
+  await Promise.all(workers);
+  return { ok: true, venues };
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   configureAlarm();
   reconcilePackagedData().then(() => checkUpdates("installed"));
@@ -789,6 +891,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.type === "rank-assistant-journal-metadata") {
     lookupJournalMetadata(message).then(sendResponse);
+    return true;
+  }
+  if (message?.type === "rank-assistant-doi-venue") {
+    lookupDoiVenue(message).then(sendResponse).catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
+    return true;
+  }
+  if (message?.type === "rank-assistant-doi-venues") {
+    lookupDoiVenues(message).then(sendResponse).catch((error) => sendResponse({ ok: false, error: String(error?.message || error), venues: {} }));
+    return true;
+  }
+  if (message?.type === "rank-assistant-title-venues") {
+    lookupTitleVenues(message).then(sendResponse).catch((error) => sendResponse({ ok: false, error: String(error?.message || error), venues: {} }));
     return true;
   }
   if (message?.type === "rank-assistant-match-dblp-venues") {

@@ -19,7 +19,17 @@
   </section>
 
   <section class="card">
-    <h2>显示标签</h2>
+    <div class="preset-heading">
+      <div><h2>显示标签</h2><p>使用学科预设快速选择，之后仍可逐项调整</p></div>
+      <output id="presetState" aria-live="polite">自定义</output>
+    </div>
+    <div id="badgePresets" class="preset-grid" aria-label="标签预设">
+      <button class="preset-button" type="button" data-preset="computer">计算机</button>
+      <button class="preset-button" type="button" data-preset="science">理工医学</button>
+      <button class="preset-button" type="button" data-preset="social">社科商科</button>
+      <button class="preset-button" type="button" data-preset="chinese">中文期刊</button>
+      <button class="preset-button" type="button" data-preset="all">全部</button>
+    </div>
     <div class="grid">
       <label><input id="showCcf" type="checkbox"> CCF</label>
       <label><input id="showCas" type="checkbox"> 中科院分区</label>
@@ -34,6 +44,7 @@
       <label><input id="showEi" type="checkbox"> EI Compendex</label>
       <label><input id="showUtd24" type="checkbox"> UTD24</label>
       <label><input id="showFt50" type="checkbox"> FT50</label>
+      <label><input id="showAbs" type="checkbox"> ABS / AJG 2024</label>
     </div>
   </section>
   <section class="card theme-card">

@@ -17,6 +17,7 @@
     showEi: true,
     showUtd24: true,
     showFt50: true,
+    showAbs: true,
     showXinrui: true,
     showWarning: true,
     hideWarnedJournals: false,
@@ -196,6 +197,9 @@
 
   function resultContainers() {
     const site = siteKind();
+    if (site === "pubmed" && isPubmedArticlePage()) {
+      return [document.querySelector("main, article[role='main'], #enc-abstract") || document.body];
+    }
     if (site === "scholar" && location.pathname.startsWith("/citations")) {
       return document.querySelectorAll(".gsc_a_tr");
     }
@@ -355,14 +359,14 @@
     if (site === "dblp") return container.querySelector('span.title[itemprop="name"], .title');
     if (site === "scholar") return container.querySelector(".gsc_a_at, .gs_rt");
     if (site === "arxiv") return container.querySelector(".title");
-    if (site === "pubmed") return container.querySelector(".docsum-title");
+    if (site === "pubmed") return container.querySelector(".docsum-title") || (isPubmedArticlePage() ? container.querySelector("h1.heading-title, main h1, h1") : null);
     if (site === "semantic-scholar") return container.querySelector('a[href*="/paper/"]');
     if (site === "openalex") return container.querySelector('a[href^="/works/"], a[href*="openalex.org/works/"]');
     if (site === "cnki") return container.querySelector('td.name a, .name a, a.fz14, a[href*="/kcms2/article/abstract"], a[href*="/kns8s/detail/detail.aspx"], a[href*="/detail/detail.aspx"]');
     if (site === "wanfang") return container.querySelector('.title a, a.title, a[href*="d.wanfangdata.com.cn/periodical/"], a[href*="d.wanfangdata.com.cn/thesis/"], a[href*="d.wanfangdata.com.cn/conference/"]');
     if (site === "aminer") return container.querySelector('a.title-link[href^="/pub/"], .paper-title');
     if (site === "baidu-scholar") return container.querySelector('.paper-title a, h3.t a, .t a, a[href*="/usercenter/paper/show"]');
-    if (site === "researchgate") return container.querySelector("h1, h2 a[href*='/publication/'], h3 a[href*='/publication/'], a[href*='/publication/']");
+    if (site === "researchgate") return container.querySelector("h1") || researchGatePublicationLink(container);
     if (site === "publisher") {
       return container.querySelector(
         "[data-test*='title'] a, [data-testid*='title'] a, .article-title a, .result-title a, .title a, h2 a, h3 a, " + PUBLISHER_TITLE_LINK_SELECTOR
@@ -421,6 +425,33 @@
     return siteKind() === "publisher" && Boolean(journalHeaderNode()) && /\/(?:about|publication)\b/.test(path);
   }
 
+  function isAccessChallengePage() {
+    const heading = [document.title, document.querySelector("h1")?.textContent]
+      .filter(Boolean).join("\n");
+    const body = (document.body?.innerText || document.body?.textContent || "").slice(0, 5000);
+    const dataDomeInterstitial = Boolean(document.querySelector(
+      "#datadome-captcha, iframe[src*='captcha-delivery.com'], script[src*='captcha-delivery.com']"
+    )) || (body.trim().length < 80 && [...document.scripts].some((script) => /\bvar\s+dd\s*=\s*\{/.test(script.textContent || "")));
+    return dataDomeInterstitial || /access restricted/i.test(heading) || (
+      (/are you a robot/i.test(heading) && /(?:captcha|confirm you are a human)/i.test(body)) ||
+      /(?:verify|confirm) you are (?:a )?human/i.test(body) ||
+      /checking (?:your )?browser/i.test(body) ||
+      /正在进行安全验证|验证您不是自动程序/.test(body) ||
+      (/cloudflare/i.test(body) && /ray id/i.test(body))
+    );
+  }
+
+  function suppressAccessChallengeOutput() {
+    document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+    document.querySelectorAll("[data-paper-rank-processed], [data-paper-rank-loading], [data-paper-rank-matched]").forEach((node) => {
+      delete node.dataset.paperRankProcessed;
+      delete node.dataset.paperRankLoading;
+      delete node.dataset.paperRankMatched;
+    });
+    document.documentElement.dataset.paperRankHasResults = "0";
+    state.lastScanDetail = "access challenge page skipped";
+  }
+
   function journalHeaderNode() {
     return document.querySelector(
       "[data-test*='journal-title'], [data-testid*='journal-title'], .journal-title h1, .journal-title, " +
@@ -460,6 +491,31 @@
     return siteKind() === "researchgate" && /\/publication\//.test(location.pathname);
   }
 
+  function researchGatePublicationLink(container) {
+    const links = [...(container.querySelectorAll?.("a") || [])].filter((link) => {
+      try { return /\/publication\//.test(new URL(link.href, location.href).pathname); } catch (_) { return false; }
+    });
+    return links
+      .filter((link) => {
+        const text = (link.textContent || "").trim();
+        return text && !/^(?:source|view|download)$/i.test(text);
+      })
+      .sort((left, right) => (right.textContent || "").trim().length - (left.textContent || "").trim().length)[0] || links[0] || null;
+  }
+
+  function researchGatePaperTitle(container) {
+    const text = (researchGatePublicationLink(container)?.textContent || "").trim();
+    return /^(?:source|view|download)$/i.test(text) ? "" : text;
+  }
+
+  function normalizedPaperTitle(value) {
+    return String(value || "").normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  }
+
+  function isPubmedArticlePage() {
+    return siteKind() === "pubmed" && /^\/\d+\/?$/.test(location.pathname);
+  }
+
   function isPublisherDocumentPage() {
     if (siteKind() !== "publisher" || isJournalLandingPage()) return false;
     if (/\/(?:article|articles|doi|document|content)\//.test(location.pathname)) return true;
@@ -477,6 +533,23 @@
     if (linked) return linked;
     // ResearchGate sometimes exposes the journal only below the paper title.
     return researchGateVenueFromText(document.body?.innerText || "");
+  }
+
+  function researchGateDoi(root = document) {
+    const clean = (value) => String(value || "")
+      .replace(/(?:ISBN|ISSN|PMID|PMCID|CITATIONS?|READS?)[:\s].*$/i, "")
+      .replace(/[.,;:)>\]}]+$/g, "");
+    for (const selector of ['meta[name="citation_doi"]', 'meta[name="dc.identifier"]', 'meta[name="prism.doi"]']) {
+      const value = root.querySelector?.(selector)?.content || "";
+      const match = value.match(/10\.\d{4,9}\/[\w.()/:;-]+/i);
+      if (match) return clean(match[0]);
+    }
+    for (const link of root.querySelectorAll?.('a[href*="doi.org/"]') || []) {
+      const match = (link.href || "").match(/doi\.org\/(10\.\d{4,9}\/[\w.()/:;-]+)/i);
+      if (match) return clean(decodeURIComponent(match[1]));
+    }
+    const text = root === document ? (document.body?.innerText || "") : (root.innerText || root.textContent || "");
+    return clean(text.match(/\b10\.\d{4,9}\/[\w.()/:;-]+/i)?.[0]);
   }
 
   function publisherDocumentVenue() {
@@ -583,7 +656,12 @@
       const parts = raw.split(/\s+-\s+/);
       if (parts.length >= 2) return parts[1].replace(/,\s*\d{4}.*$/, "").trim();
     }
-    if (site === "pubmed") return raw.replace(/\b(?:19|20)\d{2}\b.*$/, "").replace(/[.;,\s]+$/, "").trim();
+    if (site === "pubmed") {
+      if (isPubmedArticlePage()) {
+        return (document.querySelector('meta[name="citation_journal_title"]')?.content || raw).trim();
+      }
+      return raw.replace(/\b(?:19|20)\d{2}\b.*$/, "").replace(/[.;,\s]+$/, "").trim();
+    }
     if (site === "arxiv") return raw.replace(/^(Comments|Journal reference):\s*/i, "").trim();
     if (site === "cnki" || site === "wanfang") {
       const venue = venueNode(container);
@@ -607,8 +685,9 @@
       const perResult = (researchGateVenueNode(container)?.textContent || "").trim();
       const fromText = researchGateVenueFromText(container.innerText || container.textContent || "");
       // A profile/search card must never inherit a journal from the open page.
-      // Its full local text is retained as a fallback so embedded journal text can be matched.
-      return fromText || perResult || raw;
+      // An ordinary keyword result without an explicit source is not evidence
+      // that the query phrase is the publication venue.
+      return fromText || perResult;
     }
     if (site === "publisher") {
       if (isJournalLandingPage()) return (journalHeaderNode()?.textContent || publisherDocumentVenue()).trim();
@@ -772,6 +851,7 @@
   }
 
   function pubmedId(container) {
+    if (isPubmedArticlePage()) return location.pathname.match(/\d+/)?.[0] || "";
     const href = container.querySelector("a.docsum-title, a[href*='/pubmed/'], a[href]")?.getAttribute("href") || "";
     const fromHref = href.match(/(?:^|\/)\d{6,10}(?:\/|$)/)?.[0]?.replace(/\//g, "");
     if (fromHref) return fromHref;
@@ -1217,7 +1297,7 @@
     ];
   }
 
-  function renderBusinessBadges(row, business) {
+  function renderBusinessBadges(row, business, ajg) {
     const s = state.settings;
     if (s.showUtd24 && business?.utd24) row.appendChild(badge("utd24", "UTD24", "UT Dallas 24", [
       { label: "期刊", value: business.name }, { label: "目录", value: "UTD 24" }
@@ -1225,9 +1305,12 @@
     if (s.showFt50 && business?.ft50) row.appendChild(badge("ft50", "FT50", "Financial Times 50", [
       { label: "期刊", value: business.name }, { label: "版本", value: "2026 年 4 月" }
     ], "Financial Times 全球商学院研究排名使用的 FT50 期刊目录。"));
+    if (s.showAbs && ajg?.rating) row.appendChild(badge("abs", "ABS " + ajg.rating, "ABS / Academic Journal Guide", [
+      { label: "期刊", value: ajg.title }, { label: "评级", value: ajg.rating }, { label: "版本", value: "AJG 2024" }
+    ], "Chartered Association of Business Schools 发布的 Academic Journal Guide（常称 ABS）评级；4* 为最高等级。", ajg.rating));
   }
 
-  function renderBadges(record, business = null) {
+  function renderBadges(record, business = null, ajg = null, verifiedVenueTitle = "") {
     const row = document.createElement("span");
     row.className = "rank-assistant-row";
     row.dataset.paperRank = "1";
@@ -1261,13 +1344,16 @@
           "ccf-none",
           "CCF None",
           "未匹配 CCF 等级",
-          [{ label: "目录", value: "CCF 2026" }],
+          [
+            ...(verifiedVenueTitle ? [{ label: "来源", value: verifiedVenueTitle }] : []),
+            { label: "目录", value: "CCF 2026" }
+          ],
           "本地 CCF 目录未匹配到。可能是非 CCF 来源，也可能是页面来源信息不完整。"
         ));
       }
     }
 
-    renderBusinessBadges(row, business);
+    renderBusinessBadges(row, business, ajg);
     if (!record) return row.children.length ? row : null;
 
     if (s.showCas && record[4]) {
@@ -1519,12 +1605,16 @@
     idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
   }
 
-  function renderContainer(container, record, texts = []) {
+  function renderContainer(container, record, texts = [], verifiedVenueTitle = "") {
     if (isResearchGatePublicationPage() || isPublisherDocumentPage()) {
       document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
     }
     container.dataset.paperRankProcessed = "1";
     delete container.dataset.paperRankLoading;
+    if (siteKind() === "researchgate" && !isResearchGatePublicationPage() && !record && !researchGateVenueNode(container) && !verifiedVenueTitle) {
+      delete container.dataset.paperRankMatched;
+      return;
+    }
     const visible = recordPassesFilters(record);
     container.classList.toggle("rank-assistant-filter-hidden", !visible);
     if (!visible) return;
@@ -1533,14 +1623,35 @@
     // line outside Scholar; Google Scholar uses only confirmed records.
     const businessTexts = siteKind() === "scholar" ? canonicalTexts : (canonicalTexts.length ? canonicalTexts : texts);
     const business = businessTexts.map((text) => globalThis.RankAssistantBusinessRankings?.match(text)).find(Boolean) || null;
-    const row = renderBadges(record, business);
+    // ABS/AJG is deliberately tied to a catalog-confirmed journal title,
+    // never to arbitrary paper-title text or an unverified short label.
+    const ajg = record ? globalThis.RankAssistantAjg2024?.match(record[0]) || null : null;
+    const row = renderBadges(record, business, ajg, verifiedVenueTitle);
     if (row) {
-      attachTitleRow(container, row, [record?.[0], business?.name]);
+      attachTitleRow(container, row, [record?.[0], business?.name, verifiedVenueTitle]);
       container.dataset.paperRankMatched = "1";
     } else {
       delete container.dataset.paperRankMatched;
     }
     if (record) attachVenueDetails(container, renderVenueDetails(record));
+  }
+
+  async function resolveAndRenderResearchGateItems(items) {
+    if (!items.length) return;
+    await ensureShards(items.flatMap((item) => item.texts.flatMap(primaryShardsForText)));
+    const unresolved = [];
+    for (const item of items) {
+      item.record = await indexedRecordForIssns(item.externalIssns) ||
+        uniqueRecord(item.texts.map((text) => matchRecord(text, { allowEmbedded: true, allowCompletion: false })));
+      if (!item.record) unresolved.push(item);
+    }
+    if (unresolved.length) {
+      await ensureShards(unresolved.flatMap((item) => item.texts.flatMap(secondaryShardsForText)));
+      for (const item of unresolved) {
+        item.record = uniqueRecord(item.texts.map((text) => matchRecord(text, { allowEmbedded: true, allowCompletion: false })));
+      }
+    }
+    for (const item of items) renderContainer(item.container, item.record, item.texts, item.verifiedVenueTitle);
   }
 
   function unifyDblpVenueLineages(items) {
@@ -1571,6 +1682,10 @@
   }
 
   async function scan() {
+    if (isAccessChallengePage()) {
+      suppressAccessChallengeOutput();
+      return;
+    }
     const containers = [...resultContainers()].filter(
       (container) => container.dataset.paperRankProcessed !== "1" && container.dataset.paperRankLoading !== "1"
     );
@@ -1583,7 +1698,8 @@
       const sourceText = site === "scholar" ? candidateText(container) : "";
       const texts = candidateTexts(container);
       const explicitTexts = site === "scholar" ? scholarExplicitVenueCandidates(container) : [];
-      return { container, texts, explicitTexts, sourceText, venueFingerprint: site === "scholar" ? scholarVenueFingerprint(container) : "", text: texts[0] || "", pmid: site === "pubmed" ? pubmedId(container) : "", pubmedIssns: [], record: null };
+      const doi = site === "researchgate" && !researchGateVenueNode(container) ? researchGateDoi(container) : "";
+      return { container, texts, explicitTexts, sourceText, venueFingerprint: site === "scholar" ? scholarVenueFingerprint(container) : "", text: texts[0] || "", pmid: site === "pubmed" ? pubmedId(container) : "", doi, paperTitle: site === "researchgate" && !isResearchGatePublicationPage() ? researchGatePaperTitle(container) : "", pubmedIssns: [], externalIssns: [], verifiedVenueTitle: "", record: null };
     });
 
     try {
@@ -1598,6 +1714,74 @@
           if (summary?.title && !item.texts.includes(summary.title)) item.texts.unshift(summary.title);
           if (summary?.issn) item.pubmedIssns.push(summary.issn);
         }
+      }
+      if (site === "researchgate" && isResearchGatePublicationPage()) {
+        const detailDois = items.map((item) => item.doi).filter(Boolean);
+        if (detailDois.length) {
+          const response = await sendRuntimeMessage({ type: "rank-assistant-doi-venues", dois: detailDois.slice(0, 1) });
+          for (const item of items) {
+            const venue = response?.venues?.[item.doi.toLowerCase()];
+            const title = String(venue?.title || "").trim();
+            if (title && !item.texts.includes(title)) item.texts.unshift(title);
+            item.externalIssns = Array.isArray(venue?.issns) ? venue.issns : [];
+            if (title && /^(?:journal-article|proceedings-article)$/i.test(String(venue?.type || ""))) item.verifiedVenueTitle = title;
+          }
+        }
+      }
+      if (site === "researchgate" && !isResearchGatePublicationPage()) {
+        const pending = new Set(items);
+        const applyVenue = (item, venue) => {
+          const title = String(venue?.title || "").trim();
+          if (title && !item.texts.includes(title)) item.texts.unshift(title);
+          if (Array.isArray(venue?.issns)) item.externalIssns = venue.issns;
+          item.externalVenueResolved = Boolean(title || item.externalIssns.length);
+          if (title && /^(?:journal-article|proceedings-article)$/i.test(String(venue?.type || ""))) item.verifiedVenueTitle = title;
+        };
+
+        const nativeVenueItems = items.filter((item) => researchGateVenueNode(item.container));
+        for (const item of nativeVenueItems) pending.delete(item);
+        await resolveAndRenderResearchGateItems(nativeVenueItems);
+
+        // Resolve and paint small DOI groups independently. One slow or bad
+        // publication must not hold back every badge on the first screen.
+        const doiItems = items.filter((item) => item.doi).slice(0, 20);
+        for (let start = 0; start < doiItems.length; start += 4) {
+          const group = doiItems.slice(start, start + 4);
+          const response = await sendRuntimeMessage({ type: "rank-assistant-doi-venues", dois: group.map((item) => item.doi) });
+          const ready = [];
+          for (const item of group) {
+            const venue = response?.venues?.[item.doi.toLowerCase()];
+            if (!venue) continue;
+            applyVenue(item, venue);
+            ready.push(item);
+            pending.delete(item);
+          }
+          await resolveAndRenderResearchGateItems(ready);
+        }
+
+        // Cards still missing a usable DOI get a conservative exact-title
+        // fallback, also in small independently rendered groups.
+        const titleItems = [...pending].filter((item) => item.paperTitle).slice(0, 12);
+        for (let start = 0; start < titleItems.length; start += 3) {
+          const group = titleItems.slice(start, start + 3);
+          const response = await sendRuntimeMessage({ type: "rank-assistant-title-venues", titles: group.map((item) => item.paperTitle) });
+          const ready = [];
+          for (const item of group) {
+            const venue = response?.venues?.[normalizedPaperTitle(item.paperTitle)];
+            if (!venue) continue;
+            applyVenue(item, venue);
+            ready.push(item);
+            pending.delete(item);
+          }
+          await resolveAndRenderResearchGateItems(ready);
+        }
+
+        // Only now finalize cards for which neither source-recovery path had
+        // trustworthy evidence. These remain blank instead of receiving a
+        // fabricated journal rank.
+        for (const item of pending) renderContainer(item.container, null, item.texts, "");
+        state.lastScanDetail = state.shards.size + " content data shards";
+        return;
       }
       if (isDblp()) {
         const response = await sendRuntimeMessage({
@@ -1638,7 +1822,14 @@
         if (site === "scholar") localFallback = scholarFallbackRecord(item.texts);
         else if (isSemanticScholar) localFallback = semanticScholarRecord(item.texts);
         else localFallback = uniqueRecord(item.texts.map((text) => matchRecord(text, { allowCompletion: !allowEmbedded })));
-        item.record = indexedPublisherRecord || publisherTitleRecord || explicitScholarRecord || sourceRecord || (site === "pubmed" ? await indexedRecordForIssns(item.pubmedIssns) : null) || localFallback;
+        const publisherRecord = site === "publisher" && isJournalLandingPage()
+          // A current, exact masthead/title match is stronger than an ISSN
+          // mentioned only in historical-journal prose on the same page.
+          ? (publisherTitleRecord || indexedPublisherRecord)
+          : (indexedPublisherRecord || publisherTitleRecord);
+        item.record = publisherRecord || explicitScholarRecord || sourceRecord ||
+          (site === "pubmed" ? await indexedRecordForIssns(item.pubmedIssns) : null) ||
+          (site === "researchgate" ? await indexedRecordForIssns(item.externalIssns) : null) || localFallback;
         if (!item.record) unresolved.push(item);
       }
       if (unresolved.length && allowEmbedded) {
@@ -1650,7 +1841,7 @@
       unifyDblpVenueLineages(items);
       state.lastScanDetail = state.shards.size + " content data shards";
       for (const item of items) {
-        renderContainer(item.container, item.record, item.texts);
+        renderContainer(item.container, item.record, item.texts, item.verifiedVenueTitle);
         if (site === "scholar") item.container.dataset.paperRankVenueFingerprint = item.venueFingerprint;
       }
     } catch (error) {
@@ -1678,6 +1869,11 @@
   function watchDynamicResults() {
     let timer;
     const observer = new MutationObserver((records) => {
+      if (isAccessChallengePage()) {
+        clearTimeout(timer);
+        suppressAccessChallengeOutput();
+        return;
+      }
       const site = siteKind();
       const dynamicVenueSite = site === "researchgate" || site === "publisher" || site === "scholar" || site === "pubmed";
       // Ignore mutations made by our own badges, but react when Scholar or a

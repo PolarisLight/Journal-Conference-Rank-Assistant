@@ -24,7 +24,7 @@ The extension places rank badges beside paper titles and explains each badge on 
 - Combined CAS partition and Top status, such as `CAS Zone 1 Top`
 - JCR Q1-Q4, impact factor, and Web of Science indexing types
 - CSSCI, PKU Core, Ei Compendex, XinRui partitions, and the current warning list
-- UTD24 and FT50 business-journal lists
+- UTD24, FT50, and ABS/AJG 2024 business-journal badges
 - Venue details including canonical name, publisher, topics, ISSN, data year, and source
 - A draggable page filter for keeping papers by index, partition, or rank
 - Light, dark, and system-following panel themes
@@ -48,6 +48,7 @@ The extension places rank badges beside paper titles and explains each badge on 
 | CAS warning list | Current list only | 2025 |
 | UTD24 | 24 journals used by the UT Dallas research ranking | Current list |
 | FT50 | Financial Times business-journal list | April 2026 |
+| ABS / AJG | Academic Journal Guide ratings 1, 2, 3, 4, and 4* | 2024 |
 
 The local catalog contains **35,093** journal and conference records. SCI, SCIE, SSCI, CSSCI, PKU Core, and Ei Compendex are different indexing or title-list systems. They do not define another Q1-Q4 scale. Phrases such as “SCI Q1” normally refer to JCR quartiles, so quartiles appear only on the JCR badge.
 
@@ -125,9 +126,9 @@ Plaintext inputs, private signing keys, and build caches are excluded by `.gitig
 
 The offline inputs for base CCF, JCR, CAS partitions, XinRui 2026, and the current warning list are derived from GPL-3.0-licensed [`hitfyd/ShowJCR`](https://github.com/hitfyd/ShowJCR) exports, with upstream version metadata retained.
 
-UTD24 and FT50 are compiled from the [official UT Dallas journal list](https://jindal.utdallas.edu/news/2026-utd-top-100-business-school-research-rankings/) and the [Financial Times FT50 list](https://www.ft.com/ft50-journals). ABS/AJG data is not included in distributable packages because redistribution permission has not been established.
+UTD24 and FT50 are compiled from the [official UT Dallas journal list](https://jindal.utdallas.edu/news/2026-utd-top-100-business-school-research-rankings/) and the [Financial Times FT50 list](https://www.ft.com/ft50-journals). ABS/AJG badges use Academic Journal Guide 2024 ratings. Consult the publishing body’s latest material before formal evaluation or submission decisions.
 
-## Contributors
+## Other contributors
 
 - Zining Wang — business-journal feature requirements, cross-site compatibility testing, and issue reports
 

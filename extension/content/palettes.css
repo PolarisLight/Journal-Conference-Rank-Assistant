@@ -25,6 +25,7 @@
   --paper-rank-warning: #a13b35;
   --paper-rank-utd24: #7254a3;
   --paper-rank-ft50: #a6532f;
+  --paper-rank-abs: #347f72;
 }
 
 :root[data-paper-rank-palette="vivid"] {
@@ -53,6 +54,7 @@
   --paper-rank-warning: #c5152f;
   --paper-rank-utd24: #7f3fbf;
   --paper-rank-ft50: #d35400;
+  --paper-rank-abs: #008c78;
 }
 
 /* Okabe-Ito inspired hues, darkened where needed for small-text contrast. */
@@ -82,6 +84,7 @@
   --paper-rank-warning: #9f3e72;
   --paper-rank-utd24: #0072b2;
   --paper-rank-ft50: #d55e00;
+  --paper-rank-abs: #009e73;
 }
 
 .rank-assistant-badge[data-kind="ccf"][data-level="a"] { --pr-color: var(--paper-rank-ccf-a); }
@@ -109,6 +112,7 @@
 .rank-assistant-badge[data-kind="warning"] { --pr-color: var(--paper-rank-warning); }
 .rank-assistant-badge[data-kind="utd24"] { --pr-color: var(--paper-rank-utd24); }
 .rank-assistant-badge[data-kind="ft50"] { --pr-color: var(--paper-rank-ft50); }
+.rank-assistant-badge[data-kind="abs"] { --pr-color: var(--paper-rank-abs); }
 
 :root[data-paper-rank-palette="vivid"] .rank-assistant-badge {
   border-color: color-mix(in srgb, var(--pr-color) 58%, transparent);

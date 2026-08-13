@@ -4,10 +4,22 @@ const I18N = globalThis.RankAssistantI18n;
 const SETTINGS = {
   enabled: true, showCcf: true, showCas: true, showJcr: true,
   showIf: true, showWos: true, showTop: true, showCssci: true, showPku: true, showEi: true,
-  showUtd24: true, showFt50: true,
+  showUtd24: true, showFt50: true, showAbs: true,
   showXinrui: true, showWarning: true,
   autoCheckUpdates: true, language: "zh-CN", colorTheme: "light", colorPalette: "vivid"
 };
+const BADGE_SETTING_IDS = Object.freeze([
+  "showCcf", "showCas", "showXinrui", "showWarning", "showJcr", "showIf", "showWos",
+  "showTop", "showCssci", "showPku", "showEi", "showUtd24", "showFt50", "showAbs"
+]);
+const BADGE_PRESETS = Object.freeze({
+  computer: ["showCcf", "showCas", "showXinrui", "showWarning", "showJcr", "showIf", "showWos", "showTop", "showEi"],
+  science: ["showCas", "showXinrui", "showWarning", "showJcr", "showIf", "showWos", "showTop", "showEi"],
+  social: ["showJcr", "showIf", "showWos", "showCssci", "showPku", "showUtd24", "showFt50", "showAbs"],
+  chinese: ["showCas", "showXinrui", "showWarning", "showJcr", "showIf", "showWos", "showTop", "showCssci", "showPku", "showEi"],
+  all: BADGE_SETTING_IDS
+});
+const PRESET_LABELS = Object.freeze({ computer: "计算机", science: "理工医学", social: "社科商科", chinese: "中文期刊", all: "全部" });
 let activeLanguage = I18N.DEFAULT_LANGUAGE;
 let currentStatus = null;
 let currentFeed = [];
@@ -19,6 +31,41 @@ function tr(value) {
 function localizePopup() {
   I18N.localizeDom(document, activeLanguage);
   document.title = tr("期刊会议等级与分区助手");
+  updatePresetState();
+}
+
+function badgeSelection() {
+  return Object.fromEntries(BADGE_SETTING_IDS.map((id) => [id, Boolean(document.getElementById(id)?.checked)]));
+}
+
+function matchingPreset(selection = badgeSelection()) {
+  return Object.entries(BADGE_PRESETS).find(([, enabled]) => {
+    const values = new Set(enabled);
+    return BADGE_SETTING_IDS.every((id) => selection[id] === values.has(id));
+  })?.[0] || "";
+}
+
+function updatePresetState() {
+  const current = matchingPreset();
+  const output = document.getElementById("presetState");
+  if (output) output.textContent = current ? tr(PRESET_LABELS[current]) : tr("自定义");
+  for (const button of document.querySelectorAll(".preset-button")) {
+    const active = button.dataset.preset === current;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function applyBadgePreset(name) {
+  const enabled = new Set(BADGE_PRESETS[name] || []);
+  const values = {};
+  for (const id of BADGE_SETTING_IDS) {
+    values[id] = enabled.has(id);
+    const input = document.getElementById(id);
+    if (input) input.checked = values[id];
+  }
+  chrome.storage.local.set(values);
+  updatePresetState();
 }
 
 function syncPalettePreview(value) {
@@ -132,6 +179,7 @@ for (const id of Object.keys(SETTINGS)) {
     if (id === "language") value = I18N.normalize(value);
     chrome.storage.local.set({ [id]: value });
     if (id === "colorPalette") syncPalettePreview(value);
+    if (BADGE_SETTING_IDS.includes(id)) updatePresetState();
     if (id === "language") {
       await I18N.ready(value);
       activeLanguage = value;
@@ -141,6 +189,11 @@ for (const id of Object.keys(SETTINGS)) {
     }
   });
 }
+
+document.getElementById("badgePresets").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-preset]");
+  if (button) applyBadgePreset(button.dataset.preset);
+});
 
 Promise.all([
   fetch(chrome.runtime.getURL("extension/data/build-info.json")).then((response) => response.json()),

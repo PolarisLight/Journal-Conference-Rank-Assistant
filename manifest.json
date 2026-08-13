@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "zh_CN",
   "name": "__MSG_extensionName__",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "__MSG_extensionDescription__",
   "browser_specific_settings": {
     "gecko": {
@@ -112,6 +112,7 @@
         "extension/lib/normalizer.js",
         "extension/lib/i18n.js",
         "extension/data/business-rankings.js",
+        "extension/data/ajg-2024.js",
         "extension/data/issn-index.js",
         "extension/content/content-v7.js",
         "extension/content/filter-ui.js"

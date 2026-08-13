@@ -10,6 +10,14 @@
     "本地数据已就绪": "Local data is ready",
     "尚未检查官方更新": "Official updates have not been checked",
     "显示标签": "Visible badges",
+    "使用学科预设快速选择，之后仍可逐项调整": "Use a field preset, then adjust individual indexes",
+    "标签预设": "Badge presets",
+    "自定义": "Custom",
+    "计算机": "Computer science",
+    "理工医学": "Science & medicine",
+    "社科商科": "Social science & business",
+    "中文期刊": "Chinese journals",
+    "全部": "All",
     "中科院分区": "CAS partitions",
     "新锐分区": "XinRui partitions",
     "当前预警": "Current warning",
@@ -114,7 +122,8 @@
     "会议详情": "Conference details",
     "重试": "Retry",
     "UT Dallas Top 100 Business School Research Rankings 使用的 24 本商科期刊目录。": "The 24-journal set used by the UT Dallas Top 100 Business School Research Rankings.",
-    "Financial Times 全球商学院研究排名使用的 FT50 期刊目录。": "The FT50 journal list used in the Financial Times business school research ranking."
+    "Financial Times 全球商学院研究排名使用的 FT50 期刊目录。": "The FT50 journal list used in the Financial Times business school research ranking.",
+    "Chartered Association of Business Schools 发布的 Academic Journal Guide（常称 ABS）评级；4* 为最高等级。": "The Academic Journal Guide rating published by the Chartered Association of Business Schools (commonly called ABS); 4* is the highest rating."
   });
 
   const catalogs = new Map();

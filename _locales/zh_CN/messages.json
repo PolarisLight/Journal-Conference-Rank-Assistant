@@ -340,5 +340,32 @@
   },
   "ui_financial_times_ft50": {
     "message": "Financial Times 全球商学院研究排名使用的 FT50 期刊目录。"
+  },
+  "ui_academic_journal_guide_abs": {
+    "message": "Chartered Association of Business Schools 发布的 Academic Journal Guide（常称 ABS）评级；4* 为最高等级。"
+  },
+  "ui_use_a_field_preset_then_adjust_individual_indexes": {
+    "message": "使用学科预设快速选择，之后仍可逐项调整"
+  },
+  "ui_badge_presets": {
+    "message": "标签预设"
+  },
+  "ui_custom": {
+    "message": "自定义"
+  },
+  "ui_computer_science": {
+    "message": "计算机"
+  },
+  "ui_science_medicine": {
+    "message": "理工医学"
+  },
+  "ui_social_science_business": {
+    "message": "社科商科"
+  },
+  "ui_chinese_journals": {
+    "message": "中文期刊"
+  },
+  "ui_all": {
+    "message": "全部"
   }
 }
