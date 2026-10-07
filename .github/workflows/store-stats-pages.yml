@@ -1,0 +1,56 @@
+name: Update store statistics and deploy Pages
+
+on:
+  schedule:
+    - cron: '23 1 * * *' # Daily at 09:23 Asia/Shanghai (01:23 UTC).
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'scripts/fetch_store_stats.py'
+      - 'tests/test_store_stats.py'
+      - '.github/workflows/store-stats-pages.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify metric parsing and failure handling
+        run: python -m unittest discover -s tests -p test_store_stats.py
+      - name: Fetch and validate both stores
+        run: python scripts/fetch_store_stats.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy updated site
+        id: deployment
+        uses: actions/deploy-pages@v4

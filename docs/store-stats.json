@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "collected_at": "2026-10-07T06:52:53Z",
+  "chrome": {
+    "source_url": "https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm?hl=en",
+    "users": 109,
+    "users_display": "109",
+    "approximate": false
+  },
+  "firefox": {
+    "source_url": "https://addons.mozilla.org/en-US/firefox/addon/journal-conf-rank-assistant/",
+    "api_url": "https://addons.mozilla.org/api/v5/addons/addon/journal-conf-rank-assistant/",
+    "average_daily_users": 3,
+    "weekly_downloads": 0
+  }
+}

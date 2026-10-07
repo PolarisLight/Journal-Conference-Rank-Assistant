@@ -375,6 +375,44 @@ h3 {
   gap: 18px;
 }
 
+.store-stats {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.store-stats-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 30px;
+}
+
+.store-stats-counts a {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+}
+
+.store-stats-counts a:hover strong {
+  color: var(--accent);
+}
+
+.store-stats-counts strong {
+  font-size: 1.7rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.store-stats-counts span,
+.store-stats-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.store-stats-note {
+  margin: 12px 0 0;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
