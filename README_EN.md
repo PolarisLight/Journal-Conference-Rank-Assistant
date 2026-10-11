@@ -42,7 +42,7 @@ Version 0.13.0 adds multiple custom CSV indexes. Each file creates a separate na
 2. Open the extension popup → **Manage custom indexes** → choose the CSV. Enter the group name in **Index name**, check the preview, and click **Import index**.
 3. Refresh paper pages to see **Custom: index name tier** badges and filter by the new index.
 
-AI can convert an existing institutional list, PDF, or spreadsheet into CSV. Confirm the source and year, then verify names, tiers, and the entry count against the original. [Read the step-by-step guide and copy the AI prompt](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#custom-indexes).
+Tell an AI tool with web search enabled which ranking system or institution, subject scope, and year you want. AI searches the issuing body's original list itself, verifies it, and generates CSV with source links, the actual year, entry counts, and a coverage report. Check the result, then download and import the file. [Read the step-by-step guide and copy the AI prompt](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#custom-indexes).
 
 ## Ranking and indexing coverage
 

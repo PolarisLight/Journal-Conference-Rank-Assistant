@@ -1,17 +1,18 @@
-Create an importable CSV for Journal & Conference Rank Assistant from the source list I provide.
+Search the web yourself for the journal or conference list I want, verify the original material, and create an importable CSV for Journal & Conference Rank Assistant.
 
-My goal: [list name, year, and subject or institution scope]
-Source: [attach a PDF/spreadsheet, paste the original list, or give the issuing body's URL]
+My goal: [specific ranking system or institution, subject, and coverage; for example, the latest public business journal list from a named university]
+Year: [requested year; leave blank to find the latest publicly available edition and report its actual year]
 Tier rules: [preserve the original tiers; leave blank if unranked; state any requested mapping explicitly]
 
-Requirements:
-1. Use only supplied material you can read and verify. Check the issuer, year, and scope first. If a URL cannot be read, ask me for the file or original text.
-2. Use exactly these four headers in this order: 名称,等级,ISSN,别名. Add no other columns. Each row represents one journal or conference.
-3. 名称 is required and must contain the full venue name. Preserve qualifiers such as Workshop and Findings. Fill 等级 using my rules, or leave it blank if unranked.
-4. ISSN and 别名 are optional. Keep ISSNs as text, such as 1234-567X. Leave uncertain values blank. Separate multiple ISSNs or aliases with semicolons.
-5. Do not invent venues, tiers, ISSNs, or aliases from memory. Merge same-venue duplicates with the same tier. List conflicts involving a shared name, alias, or ISSN with different tiers separately for my confirmation.
-6. Produce comma-delimited UTF-8 CSV, preferably with a BOM for Excel. Enclose every cell in double quotes, escape embedded double quotes by doubling them, and represent empty values as "".
-7. Do not put the index group name in the CSV. I will enter it separately in Index name on the extension's management page.
-8. Prefer a downloadable .csv file. If you can only return text, place CSV in a single code block. Keep sources, the entry count, and unresolved items in a separate note outside the CSV.
+Complete the following:
+1. Choose search terms and search independently, prioritizing the issuing body's official website and original list. Open pages and read linked PDF, Excel, or other list attachments. Verify the issuer, edition, year, and scope.
+2. If a link is inaccessible, keep looking for other official pages or verifiable original files from the same institution. Read the full list and any paginated content. Extract only entries supported by material you can verify. If the list is not public or only partly accessible, state the coverage and missing portions; do not call a partial list complete. If your tool cannot access the web, explain that web search mode must be enabled.
+3. Use exactly these four headers in this order: 名称,等级,ISSN,别名. Add no other columns. Each row represents one journal or conference.
+4. 名称 is required and must contain the full venue name. Preserve qualifiers such as Workshop and Findings. Fill 等级 using my rules, or leave it blank if unranked.
+5. ISSN and 别名 are optional. Keep ISSNs as text, such as 1234-567X. Leave uncertain values blank. Separate multiple ISSNs or aliases with semicolons.
+6. Do not fill in venues, tiers, ISSNs, or aliases from memory or search snippets. Merge same-venue duplicates with the same tier. Put conflicts involving a shared name, alias, or ISSN with different tiers in the unresolved-items note and leave them out of the CSV for now.
+7. Produce comma-delimited UTF-8 CSV, preferably with a BOM for Excel. Enclose every cell in double quotes, escape embedded double quotes by doubling them, and represent empty values as "".
+8. Do not put the index group name in the CSV. I will enter it separately in Index name on the extension's management page.
+9. Prefer a downloadable .csv file. If you can only return text, place CSV in a single code block. Separately report source links, the list's title and actual year, its original entry count if verifiable, the exported entry count, coverage, and unresolved items. Keep this note outside the CSV.
 
-Check column counts, missing venue names, duplicates, and tier conflicts before delivering the file.
+Complete the search, verification, and CSV format checks, then deliver the file and source report directly.

@@ -35,13 +35,13 @@ async function loadStoreStats() {
 const copies = {
   zh: {
     title: "期刊会议等级与分区助手",
-    description: "在论文标题旁查看期刊会议等级、分区与收录信息，支持导入多组自定义索引，并提供 CSV 模板与 AI 整理名单指南。",
+    description: "在论文标题旁查看期刊会议等级、分区与收录信息，支持导入多组自定义索引，并提供 CSV 模板与 AI 联网检索生成 CSV 指南。",
     promptCopied: "已复制，可粘贴到 AI 工具中。",
     promptCopyFailed: "复制未完成，请展开提示词手动复制，或下载文本。",
   },
   en: {
     title: "Journal & Conference Rank Assistant",
-    description: "See venue rankings beside paper titles, import multiple custom index lists, and prepare CSV files with a template and an AI conversion guide.",
+    description: "See venue rankings beside paper titles, import multiple custom index lists, and let AI search official lists and create CSV files with our guide.",
     promptCopied: "Copied. Paste it into your AI tool.",
     promptCopyFailed: "Could not copy. Expand the prompt to copy it manually, or download the text.",
   },

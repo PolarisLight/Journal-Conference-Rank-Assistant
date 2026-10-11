@@ -42,7 +42,7 @@
 2. 打开扩展弹窗 → **管理自定义索引** → 选择 CSV，在 **索引名称** 中填写组名，核对预览后点击 **导入索引**。
 3. 刷新论文页面，查看“自定义：组名 等级”标签，并在网页筛选器中选择这组索引。
 
-已有 PDF、表格或机构名单时，可使用 AI 整理为 CSV。先确认资料的来源和年份，转换后对照原目录核对名称、等级和条目数量。[查看完整操作指南与可复制的 AI 提示词](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#custom-indexes)。
+也可直接把想要的评价体系或机构、学科范围和年份告诉开启联网搜索的 AI。AI 会自行检索发布机构的原始目录，核实后生成 CSV，并提供来源链接、实际年份、条目数量和覆盖情况说明。检查结果后下载导入即可。[查看完整操作指南与可复制的 AI 提示词](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#custom-indexes)。
 
 ## 收录体系
 
