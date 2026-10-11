@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>管理自定义索引</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+<main>
+  <header class="page-heading">
+    <div><p class="eyebrow">期刊会议等级与分区助手</p><h1>管理自定义索引</h1><p class="muted">导入自己的期刊和会议名单，在支持的论文页面显示标签并参与筛选。</p></div>
+    <button id="downloadTemplate" class="secondary" type="button">下载 CSV 模板</button>
+  </header>
+  <p id="status" class="status" role="status" aria-live="polite" hidden></p>
+  <section class="card" aria-labelledby="importHeading">
+    <div class="section-heading"><div><h2 id="importHeading">导入索引</h2><p class="muted">CSV 文件仅在本机读取和保存。</p></div></div>
+    <div class="import-controls">
+      <label class="file-field"><span>选择 CSV 文件</span><input id="csvFile" type="file" accept=".csv,text/csv"></label>
+      <p class="format-help">模板列：名称、等级、ISSN、别名。名称必填；等级留空显示“收录”。多个 ISSN 或别名用分号分隔。</p>
+      <p class="format-help">模板中的等级仅作填写示例，请按自己的目录修改。</p>
+    </div>
+    <div id="preview" hidden>
+      <div class="form-grid">
+        <label><span>索引名称</span><input id="indexName" type="text" maxlength="80" autocomplete="off"></label>
+      </div>
+      <p id="previewSummary" class="summary" aria-live="polite"></p>
+      <div id="diagnostics" role="status" aria-live="polite"></div>
+      <p class="muted preview-caption">预览前 10 行</p>
+      <div class="table-scroll"><table id="previewTable" data-i18n-fixed><thead></thead><tbody></tbody></table></div>
+      <div class="import-actions"><button id="importIndex" type="button" disabled>导入索引</button><button id="cancelPreview" type="button" class="secondary">取消</button><p id="targetHint" class="muted">每次导入创建独立索引，同名索引可以共存。</p></div>
+    </div>
+  </section>
+  <section class="card" aria-labelledby="indexesHeading">
+    <div class="section-heading"><h2 id="indexesHeading">我的索引</h2><output id="indexCount" class="count" aria-live="polite">0</output></div>
+    <div id="indexList"></div>
+    <div id="undoNotice" class="undo-notice" hidden><span>索引已删除。</span><button id="undoDelete" class="secondary" type="button">撤销删除</button></div>
+  </section>
+  <p class="footnote">自定义索引独立于官方评级，更新官方数据库会保留你的索引。</p>
+</main>
+<script src="../lib/normalizer.js"></script>
+<script src="../lib/i18n.js"></script>
+<script src="../lib/custom-indexes.js"></script>
+<script src="manager.js"></script>
+</body>
+</html>

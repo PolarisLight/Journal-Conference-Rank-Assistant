@@ -14,11 +14,18 @@ const SHARD_KEYS = ["0", ..."abcdefghijklmnopqrstuvwxyz", "other"];
 const DATA_KEY_PREFIX = "rankAssistantDataShard.";
 const STOP = new Set(["the", "of", "and", "for", "in", "on", "a", "an"]);
 const decryptedShardCache = new Map();
+let dblpVenueIndexPromise = null;
+const normalizedVenueShardCache = new WeakMap();
 const dblpRecoveryInFlight = new Map();
 const dblpRecoveryMemoryCache = new Map();
 const pubmedSummaryMemoryCache = new Map();
 const doiVenueMemoryCache = new Map();
 const titleVenueMemoryCache = new Map();
+
+function clearCatalogCaches() {
+  decryptedShardCache.clear();
+  dblpVenueIndexPromise = null;
+}
 
 function storageGet(defaults = null) {
   return new Promise((resolve) => chrome.storage.local.get(defaults, resolve));
@@ -208,7 +215,7 @@ async function reconcilePackagedData() {
       "dataUpdateInfo",
       "updateStatus"
     ]);
-    decryptedShardCache.clear();
+    clearCatalogCaches();
     return true;
   }
   return false;
@@ -495,7 +502,7 @@ async function installUpdates() {
       dataVersions: verified.dataVersions
     };
     await storageSet({ ...encrypted, dataUpdateInfo, updateStatus: status });
-    decryptedShardCache.clear();
+    clearCatalogCaches();
     setUpdateBadge(status);
     return status;
   } catch (error) {
@@ -514,7 +521,7 @@ async function installUpdates() {
 }
 async function getUpdatedShard(key) {
   if (!SHARD_KEYS.includes(key)) return { ok: false, error: "无效分片" };
-  if (decryptedShardCache.has(key)) return { ok: true, shard: decryptedShardCache.get(key), updated: true };
+  if (decryptedShardCache.has(key)) return { ok: true, ...decryptedShardCache.get(key) };
   const storageKey = DATA_KEY_PREFIX + key;
   const [stored, packaged] = await Promise.all([
     storageGet({ [storageKey]: null, dataUpdateInfo: null }),
@@ -525,7 +532,7 @@ async function getUpdatedShard(key) {
   if (!storedIsCurrent || !stored[storageKey]) {
     try {
       const shard = await loadPackagedShard(key);
-      decryptedShardCache.set(key, shard);
+      decryptedShardCache.set(key, { shard, updated: false });
       return { ok: true, shard, updated: false };
     } catch (error) {
       return { ok: false, shard: null, error: String(error?.message || error) };
@@ -533,10 +540,20 @@ async function getUpdatedShard(key) {
   }
   try {
     const shard = await decryptShard(stored[storageKey], "runtime");
-    decryptedShardCache.set(key, shard);
+    decryptedShardCache.set(key, { shard, updated: true });
     return { ok: true, shard, updated: true };
   } catch (error) {
-    return { ok: false, shard: null, error: String(error?.message || error) };
+    try {
+      const shard = await loadPackagedShard(key);
+      decryptedShardCache.set(key, { shard, updated: false });
+      return { ok: true, shard, updated: false };
+    } catch (fallbackError) {
+      return {
+        ok: false,
+        shard: null,
+        error: String(error?.message || error) + "; 基础分片回退失败：" + String(fallbackError?.message || fallbackError)
+      };
+    }
   }
 }
 
@@ -566,13 +583,44 @@ async function pubmedJournalSummaries(values) {
 
 function normalizeVenue(value) {
   return String(value || "")
+    .replace(/([\p{L}\p{N}])['’]s\b/giu, "$1s")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/&/g, " and ")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
     .toLowerCase()
+    .replace(/ß/g, "ss")
+    .replace(/ς/g, "σ")
     .replace(/\s+/g, " ");
+}
+
+function normalizedVenueShard(shard) {
+  if (!shard) return shard;
+  if (normalizedVenueShardCache.has(shard)) return normalizedVenueShardCache.get(shard);
+  const variants = (value) => {
+    const normalized = normalizeVenue(value);
+    return [...new Set([normalized, normalized.replace(/([\p{L}\p{N}]) s\b/gu, "$1s")])].filter(Boolean);
+  };
+  const index = (values, blockedValues) => {
+    const owners = new Map();
+    const blocked = new Set((blockedValues || []).flatMap(variants));
+    for (const [alias, offset] of Object.entries(values || {})) for (const key of variants(alias)) {
+      if (!owners.has(key)) owners.set(key, new Set());
+      owners.get(key).add(offset);
+    }
+    const entries = {};
+    for (const [key, offsets] of owners) {
+      if (offsets.size !== 1 || blocked.has(key)) blocked.add(key);
+      else entries[key] = [...offsets][0];
+    }
+    return { entries, blocked: [...blocked] };
+  };
+  const aliases = index(shard.a, shard.x);
+  const abbreviations = index(shard.b, shard.y);
+  const normalized = { ...shard, a: aliases.entries, b: abbreviations.entries, x: aliases.blocked, y: abbreviations.blocked };
+  normalizedVenueShardCache.set(shard, normalized);
+  return normalized;
 }
 
 function venueAbbreviationKey(value) {
@@ -641,6 +689,7 @@ function prefixVenueRecord(shard, normalized, { includeExact = false } = {}) {
 }
 
 function matchVenueInPrimaryShard(shard, text) {
+  shard = normalizedVenueShard(shard);
   const normalized = normalizeVenue(text).replace(/(?:\s+\d+)+$/, "");
   if (!normalized) return null;
   if (shard?.x?.includes(normalized)) return null;
@@ -652,6 +701,34 @@ function matchVenueInPrimaryShard(shard, text) {
   const prefixed = prefixVenueRecord(shard, normalized, { includeExact: truncated });
   if (prefixed === false) return null;
   return prefixed || fuzzyVenueRecord(shard, normalized);
+}
+
+function exactVenueTitleRecord(shard, text) {
+  if (/(?:\.\.\.|\u2026)+\s*$/.test(String(text || ""))) return null;
+  const normalized = normalizeVenue(text).replace(/(?:\s+\d+)+$/, "");
+  const exact = recordInVenueShard(normalizedVenueShard(shard), normalized);
+  return exact && normalizeVenue(exact[0]) === normalized ? exact : null;
+}
+
+function catalogVenueKind(record) {
+  if (/会议|conference/i.test(record?.[2] || "")) return "conf";
+  if (/刊物|journal/i.test(record?.[2] || "")) return "journals";
+  return "";
+}
+
+function catalogDblpVenueKey(record) {
+  const key = normalizedDblpVenueKey(record?.[15]);
+  const kind = catalogVenueKind(record);
+  return key && (!kind || key.startsWith("/db/" + kind + "/")) ? key : "";
+}
+
+function exactDblpAcronymRecord(shard, text, key) {
+  const acronym = String(text || "").trim().replace(/\s+(?:19|20)\d{2}$/, "");
+  if (!/^[a-z][a-z0-9-]{2,11}$/i.test(acronym)) return null;
+  const normalized = normalizeVenue(acronym);
+  const stream = key.match(/^\/db\/[^/]+\/([^/]+)\//)?.[1] || "";
+  if (normalized.replace(/\s/g, "") !== normalizeVenue(stream).replace(/\s/g, "")) return null;
+  return recordInVenueShard(normalizedVenueShard(shard), normalized);
 }
 
 function normalizedDblpVenueKey(value) {
@@ -668,22 +745,42 @@ async function matchDblpVenues(request, sender) {
   if (!dblpSenderAllowed(sender)) return { ok: false, error: "DBLP matching is only available on DBLP pages" };
   const items = Array.isArray(request?.items) ? request.items.slice(0, 200) : [];
   const keys = [...new Set(items.map((item) => venueShardKey(normalizeVenue(item?.text))).filter(Boolean))];
-  const loaded = await Promise.all(keys.map(async (key) => [key, await getUpdatedShard(key)]));
-  const shards = new Map(loaded.filter(([, result]) => result?.ok && result.shard).map(([key, result]) => [key, result.shard]));
+  const shards = await loadDblpVenueShards(keys);
   const linkedRecords = new Map();
   for (const shard of shards.values()) {
     for (const record of shard.r) {
-      const key = normalizedDblpVenueKey(record?.[15]);
+      const key = catalogDblpVenueKey(record);
       if (!key) continue;
       const current = linkedRecords.get(key);
       if (venueRecordCompleteness(record) > venueRecordCompleteness(current)) linkedRecords.set(key, record);
     }
   }
-  const records = items.map((item) => {
-    const linked = linkedRecords.get(normalizedDblpVenueKey(item?.key));
-    if (linked) return linked;
+  // A stream ID is independent of the visible title's first letter. Build
+  // the complete ID index lazily only when primary shards cannot resolve it.
+  if (items.some((item) => {
+    const key = normalizedDblpVenueKey(item?.key);
     const normalized = normalizeVenue(item?.text);
-    return matchVenueInPrimaryShard(shards.get(venueShardKey(normalized)), item?.text);
+    const visible = matchVenueInPrimaryShard(shards.get(venueShardKey(normalized)), item?.text);
+    return key && !linkedRecords.has(key) && (!visible || visible[25] === "Book-Series");
+  })) {
+    const complete = await completeDblpVenueIndex();
+    for (const [key, record] of complete.records) linkedRecords.set(key, record);
+    for (const [key, shard] of complete.shards) shards.set(key, shard);
+  }
+  const records = items.map((item) => {
+    const key = normalizedDblpVenueKey(item?.key);
+    const linked = linkedRecords.get(key);
+    const normalized = normalizeVenue(item?.text);
+    const visible = matchVenueInPrimaryShard(shards.get(venueShardKey(normalized)), item?.text);
+    const visibleKind = catalogVenueKind(visible);
+    if (!linked && key && visibleKind && !key.startsWith("/db/" + visibleKind + "/")) return null;
+    const visibleKey = normalizedDblpVenueKey(visible?.[15]);
+    // Catalog stream URLs can be stale. A unique complete title remains
+    // evidence when no stream ID resolves; fuzzy/shortened conflicts do not.
+    if (!linked && key && visibleKey && key !== visibleKey &&
+      exactVenueTitleRecord(shards.get(venueShardKey(normalized)), item?.text) !== visible &&
+      exactDblpAcronymRecord(shards.get(venueShardKey(normalized)), item?.text, key) !== visible) return null;
+    return mergeDblpSeriesRecord(visible, linked);
   });
   const lineageRecords = new Map();
   items.forEach((item, index) => {
@@ -693,10 +790,49 @@ async function matchDblpVenues(request, sender) {
     const current = lineageRecords.get(key);
     if (venueRecordCompleteness(record) > venueRecordCompleteness(current)) lineageRecords.set(key, record);
   });
-  const unifiedRecords = records.map((record, index) =>
-    lineageRecords.get(normalizedDblpVenueKey(items[index]?.key)) || record
-  );
+  const unifiedRecords = records.map((record, index) => mergeDblpSeriesRecord(
+    record, lineageRecords.get(normalizedDblpVenueKey(items[index]?.key))
+  ));
   return { ok: true, records: unifiedRecords, shardCount: shards.size, mode: "background-batch" };
+}
+
+async function loadDblpVenueShards(keys) {
+  const loaded = await Promise.all(keys.map(async (key) => [key, await getUpdatedShard(key)]));
+  const failed = loaded.filter(([, result]) => !result?.ok || !result.shard);
+  if (failed.length) throw new Error("DBLP catalog load failed: " + failed.map(([key, result]) =>
+    key + ": " + (result?.error || "Missing catalog shard")
+  ).join("; "));
+  return new Map(loaded.map(([key, result]) => [key, result.shard]));
+}
+
+async function completeDblpVenueIndex() {
+  if (!dblpVenueIndexPromise) {
+    const promise = (async () => {
+      const shards = await loadDblpVenueShards(SHARD_KEYS);
+      const records = new Map();
+      for (const shard of shards.values()) for (const record of shard.r) {
+        const key = catalogDblpVenueKey(record);
+        if (!key) continue;
+        if (venueRecordCompleteness(record) > venueRecordCompleteness(records.get(key))) records.set(key, record);
+      }
+      return { records, shards };
+    })();
+    dblpVenueIndexPromise = promise;
+    promise.catch(() => {
+      if (dblpVenueIndexPromise === promise) dblpVenueIndexPromise = null;
+    });
+  }
+  return dblpVenueIndexPromise;
+}
+
+function mergeDblpSeriesRecord(record, canonical) {
+  if (!canonical) return record || null;
+  if (record?.[25] === "Book-Series" && canonical[1] && /\/db\/conf\//.test(canonical[15] || "")) {
+    const combined = record.slice();
+    for (const index of [1, 2, 3, 14, 15]) combined[index] = canonical[index];
+    return combined;
+  }
+  return canonical;
 }
 function shortPublisher(value) {
   const name = String(value || "").trim();
@@ -863,8 +999,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.autoCheckUpdates) configureAlarm();
-  if (area === "local" && Object.keys(changes).some((key) => key.startsWith(DATA_KEY_PREFIX))) {
-    decryptedShardCache.clear();
+  if (area === "local" && Object.keys(changes).some((key) => key.startsWith(DATA_KEY_PREFIX) || key === "dataUpdateInfo")) {
+    clearCatalogCaches();
   }
 });
 
@@ -882,7 +1018,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "rank-assistant-get-data-shard") {
-    getUpdatedShard(message.key).then(sendResponse);
+    getUpdatedShard(message.key).then(sendResponse).catch((error) => sendResponse({ ok: false, shard: null, error: String(error?.message || error) }));
     return true;
   }
   if (message?.type === "rank-assistant-pubmed-journals") {
@@ -906,7 +1042,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "rank-assistant-match-dblp-venues") {
-    matchDblpVenues(message, sender).then(sendResponse);
+    matchDblpVenues(message, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
     return true;
   }  if (message?.type === "rank-assistant-dblp-recover") {
     recoverDblpPublications(message, sender).then(sendResponse);

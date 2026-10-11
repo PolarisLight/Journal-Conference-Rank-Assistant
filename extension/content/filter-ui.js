@@ -3,7 +3,7 @@
 
   const I18N = globalThis.RankAssistantI18n;
 
-  const OPTIONS = {
+  const BUILTIN_OPTIONS = {
     ccf: ["CCF", [["A", "A"], ["B", "B"], ["C", "C"], ["None", "None"]]],
     jcr: ["JCR", [["Q1", "Q1"], ["Q2", "Q2"], ["Q3", "Q3"], ["Q4", "Q4"]]],
     cas: ["中科院", [["1", "1区"], ["2", "2区"], ["3", "3区"], ["4", "4区"], ["Top", "Top"]]],
@@ -13,11 +13,12 @@
     ei: ["EI", [["Journal", "期刊"], ["Proceeding", "会议论文集"], ["Other", "其他来源"]]],
     pku: ["北大核心", [["included", "入选"]]]
   };
-  const DEFAULTS = { enabled: true, language: "zh-CN", colorTheme: "light", resultFilters: { indexes: [], values: {} }, hideWarnedJournals: false, filterButtonPosition: null, filterGuideSeen: false };
+  const DEFAULTS = { enabled: true, language: "zh-CN", colorTheme: "light", customIndexes: [], resultFilters: { indexes: [], values: {} }, hideWarnedJournals: false, filterButtonPosition: null, filterGuideSeen: false };
   const SIZE = 52;
   const GAP = 14;
   const darkMode = matchMedia("(prefers-color-scheme: dark)");
   let settings = { ...DEFAULTS };
+  let cachedOptions = null;
   let host, button, panel, indexesElement, valuesElement, warningElement, countElement, guideElement, drag;
   let suppressClick = false;
 
@@ -25,7 +26,19 @@
     return I18N.exact(value, settings.language);
   }
 
+  function options() {
+    if (cachedOptions) return cachedOptions;
+    const values = Object.assign(Object.create(null), BUILTIN_OPTIONS);
+    for (const index of globalThis.RankAssistantCustomIndexes?.normalizeIndexes(settings.customIndexes) || []) {
+      if (!index.enabled) continue;
+      const levels = [...new Set(index.entries.map((entry) => entry.level))];
+      values["custom:" + index.id] = [tr("自定义") + "：" + index.name, levels.map((level) => [level, level])];
+    }
+    return cachedOptions = values;
+  }
+
   function normalize(value) {
+    const OPTIONS = options();
     const indexes = Array.isArray(value?.indexes) ? [...new Set(value.indexes.filter((key) => OPTIONS[key]))] : [];
     const values = {};
     for (const key of indexes) {
@@ -70,6 +83,7 @@
 
   function render() {
     if (!host) return;
+    const OPTIONS = options();
     const filters = normalize(settings.resultFilters);
     settings.resultFilters = filters;
     indexesElement.replaceChildren();
@@ -297,6 +311,11 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     for (const key of Object.keys(DEFAULTS)) if (changes[key]) settings[key] = changes[key].newValue ?? DEFAULTS[key];
+    if (changes.customIndexes || changes.language) cachedOptions = null;
+    if (changes.customIndexes) {
+      const filters = normalize(settings.resultFilters);
+      if (JSON.stringify(filters) !== JSON.stringify(settings.resultFilters)) save({ resultFilters: filters });
+    }
     if (changes.enabled) settings.enabled ? buildWhenRelevant() : remove();
     if (changes.language && settings.enabled) {
       settings.language = I18N.normalize(settings.language);
@@ -308,7 +327,7 @@
     }
     if (!host) return;
     if (changes.colorTheme) syncTheme();
-    if (changes.resultFilters || changes.hideWarnedJournals || changes.filterGuideSeen) render();
+    if (changes.customIndexes || changes.resultFilters || changes.hideWarnedJournals || changes.filterGuideSeen) render();
     if (changes.filterButtonPosition) applyPosition();
   });
   document.addEventListener("pointerdown", (event) => {
@@ -345,7 +364,8 @@
   }
 
   chrome.storage.local.get(DEFAULTS, async (stored) => {
-    settings = { ...DEFAULTS, ...stored, language: I18N.normalize(stored.language), resultFilters: normalize(stored.resultFilters) };
+    settings = { ...DEFAULTS, ...stored, language: I18N.normalize(stored.language) };
+    settings.resultFilters = normalize(stored.resultFilters);
     await I18N.ready(settings.language);
     buildWhenRelevant();
   });

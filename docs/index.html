@@ -6,7 +6,7 @@
   <meta name="google" content="notranslate">
   <meta name="google-site-verification" content="rmyz9SUyBuZrdZ67i3fls0Q1gZlMisBlc8nYEHwJUdw" />
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="在常用学术检索与出版社公开页面的论文标题旁显示期刊会议等级、分区与收录信息，并按索引与等级筛选论文。">
+  <meta name="description" content="在论文标题旁查看期刊会议等级、分区与收录信息，支持导入多组自定义索引，并提供 CSV 模板与 AI 整理名单指南。">
   <link rel="canonical" href="https://polarislight.github.io/Journal-Conference-Rank-Assistant/">
   <link rel="icon" type="image/png" href="assets/icon128.png">
   <link rel="stylesheet" href="styles.css">
@@ -25,6 +25,7 @@
         <a href="https://addons.mozilla.org/addon/journal-conf-rank-assistant" data-zh="安装 Firefox 版" data-en="Install for Firefox">安装 Firefox 版</a>
         <a href="#preview" data-zh="效果" data-en="Preview">效果</a>
         <a href="#coverage" data-zh="支持内容" data-en="Coverage">支持内容</a>
+        <a href="#custom-indexes" data-zh="自定义索引" data-en="Custom indexes">自定义索引</a>
         <a href="#privacy" data-zh="隐私" data-en="Privacy">隐私</a>
         <a href="#support" data-zh="支持项目" data-en="Support">支持项目</a>
       </nav>
@@ -42,8 +43,9 @@
         <div class="hero-actions">
           <a class="button button-primary" href="https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm" data-zh="安装 Chrome 版" data-en="Install for Chrome">安装 Chrome 版</a>
           <a class="button button-secondary" href="https://addons.mozilla.org/addon/journal-conf-rank-assistant" data-zh="安装 Firefox 版" data-en="Install for Firefox">安装 Firefox 版</a>
-          <a class="text-link" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant" data-zh="查看源代码" data-en="View source">查看源代码</a>
+          <a class="text-link" href="#custom-indexes" data-zh="用自己的期刊会议名单 →" data-en="Use your own venue list →">用自己的期刊会议名单 →</a>
         </div>
+        <p class="release-note"><a href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases/tag/v0.13.0" data-zh="0.13.0 · 新增多组自定义索引" data-en="0.13.0 · Multiple custom index lists">0.13.0 · 新增多组自定义索引</a></p>
         <div class="store-stats" id="store-stats" hidden aria-live="polite">
           <div class="store-stats-counts">
             <a href="https://chromewebstore.google.com/detail/ibanchmlkanbhbddpejommgfhpfofifm"><strong id="chrome-users">—</strong><span data-zh="Chrome 用户" data-en="Chrome users">Chrome 用户</span></a>
@@ -92,6 +94,80 @@
           <div><h3 data-zh="悬停再看细节" data-en="Hover for the details">悬停再看细节</h3><p data-zh="想细看时，把鼠标放到标签或期刊会议名称上。年份、指标说明、出版社和研究方向会出现在浮层里。" data-en="Hover over a badge or venue to see years, metric notes, publishers, and research areas.">想细看时，把鼠标放到标签或期刊会议名称上。年份、指标说明、出版社和研究方向会出现在浮层里。</p></div>
           <div class="hover-sample" tabindex="0"><span data-zh="把鼠标放这里" data-en="Hover here">把鼠标放这里</span><div class="sample-tooltip" role="tooltip"><strong>Nature</strong><span data-zh="出版商：Springer Nature" data-en="Publisher: Springer Nature">出版商：Springer Nature</span><span data-zh="方向：综合科学" data-en="Area: Multidisciplinary science">方向：综合科学</span></div></div>
         </article>
+      </div>
+    </section>
+    <section class="section custom-index-section" id="custom-indexes" aria-labelledby="custom-index-title">
+      <div class="section-heading">
+        <h2 id="custom-index-title" data-zh="把自己的目录变成论文标签" data-en="Turn your own lists into paper badges">把自己的目录变成论文标签</h2>
+        <p data-zh="经管、其他学科，或学校、院系的认定名单，都可以自行导入。一份 CSV 是一组索引，每组独立命名，同一期刊可同时命中多组。需要扩展 0.13.0 或更新版本。" data-en="Import business, other subject, university, or department lists. Each CSV creates one independently named index; a venue can appear in multiple indexes. Requires extension version 0.13.0 or later.">经管、其他学科，或学校、院系的认定名单，都可以自行导入。一份 CSV 是一组索引，每组独立命名，同一期刊可同时命中多组。需要扩展 0.13.0 或更新版本。</p>
+      </div>
+      <div class="custom-index-actions">
+        <a class="button button-primary" href="downloads/custom-index-template.csv" download="custom-index-template.csv" data-zh="下载 CSV 模板" data-en="Download CSV template">下载 CSV 模板</a>
+        <a class="button button-secondary" href="#ai-index-prompt" data-zh="用 AI 整理名单" data-en="Prepare a list with AI">用 AI 整理名单</a>
+        <a class="text-link" href="https://github.com/PolarisLight/Journal-Conference-Rank-Assistant/releases/tag/v0.13.0" data-zh="下载 0.13.0" data-en="Download 0.13.0">下载 0.13.0</a>
+      </div>
+      <div class="custom-index-layout">
+        <ol class="index-steps">
+          <li><h3 data-zh="准备要使用的名单" data-en="Choose your source list">准备要使用的名单</h3><p data-zh="使用机构发布的目录、学校文件、PDF 或表格，并确认适用年份。只有学科或评价体系名称时，先让具备联网能力的 AI 找到发布机构的原始名单，确认范围后再转换。" data-en="Use a list, university document, PDF, or spreadsheet from its issuing body, and check the year. If you only have a subject or ranking system in mind, ask a web-enabled AI to locate the original list and confirm its scope before converting it.">使用机构发布的目录、学校文件、PDF 或表格，并确认适用年份。只有学科或评价体系名称时，先让具备联网能力的 AI 找到发布机构的原始名单，确认范围后再转换。</p></li>
+          <li><h3 data-zh="填模板，或让 AI 转成 CSV" data-en="Fill the template or ask AI to convert it">填模板，或让 AI 转成 CSV</h3><p data-zh="按固定四列填写，也可把下方提示词连同原始名单交给 AI，生成可下载的 CSV。模板中的“示例A”“示例B”仅演示格式，请替换为自己的等级。" data-en="Fill the four columns shown here, or give an AI the prompt below together with your source list and request a downloadable CSV. The template tiers 示例A and 示例B demonstrate the format; replace them with your own tiers.">按固定四列填写，也可把下方提示词连同原始名单交给 AI，生成可下载的 CSV。模板中的“示例A”“示例B”仅演示格式，请替换为自己的等级。</p></li>
+          <li><h3 data-zh="核对后保存为 CSV UTF-8" data-en="Check the result and save as CSV UTF-8">核对后保存为 CSV UTF-8</h3><p data-zh="对照原目录抽查名称和等级，检查条目数量。ISSN 不确定就留空。Excel 中选择“CSV UTF-8（逗号分隔）”；AI 只返回文本时，将 CSV 代码块内的内容另存为 UTF-8 的 .csv 文件。" data-en="Compare names, tiers, and the entry count against the source. Leave uncertain ISSNs blank. In Excel, select CSV UTF-8 (Comma delimited). If AI returns text, save only the content inside its CSV code block as a UTF-8 .csv file.">对照原目录抽查名称和等级，检查条目数量。ISSN 不确定就留空。Excel 中选择“CSV UTF-8（逗号分隔）”；AI 只返回文本时，将 CSV 代码块内的内容另存为 UTF-8 的 .csv 文件。</p></li>
+          <li><h3 data-zh="导入，并填写组名" data-en="Import the file and name the index">导入，并填写组名</h3><p data-zh="打开扩展弹窗 → 管理自定义索引 → 选择 CSV 文件。在“索引名称”输入框填写组名，例如“经管目录 2026”，检查预览后点击“导入索引”。刷新已打开的论文页，即可查看标签并按这组索引筛选。" data-en="Open the extension popup → Manage custom indexes → Choose CSV file. Enter the group name, such as Business list 2026, in Index name. Check the preview and click Import index. Refresh open paper pages to see badges and filter by the new index.">打开扩展弹窗 → 管理自定义索引 → 选择 CSV 文件。在“索引名称”输入框填写组名，例如“经管目录 2026”，检查预览后点击“导入索引”。刷新已打开的论文页，即可查看标签并按这组索引筛选。</p></li>
+        </ol>
+        <aside class="index-format" aria-labelledby="index-format-title">
+          <h3 id="index-format-title" data-zh="CSV 固定四列" data-en="Four fixed CSV columns">CSV 固定四列</h3>
+          <code class="csv-header">名称,等级,ISSN,别名</code>
+          <table>
+            <thead><tr><th data-zh="列名" data-en="Header">列名</th><th data-zh="怎么填写" data-en="What to enter">怎么填写</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">名称</th><td data-zh="必填：期刊或会议的完整名称。" data-en="Required: the full journal or conference name.">必填：期刊或会议的完整名称。</td></tr>
+              <tr><th scope="row">等级</th><td data-zh="自由填写 A、B、重点等；留空显示“收录”。" data-en="Any tier, such as A, B, or Priority. Blank values display as 收录 (included).">自由填写 A、B、重点等；留空显示“收录”。</td></tr>
+              <tr><th scope="row">ISSN</th><td data-zh="选填，如 0025-1909；多个值用分号分隔。" data-en="Optional, e.g. 0025-1909. Separate multiple values with semicolons.">选填，如 0025-1909；多个值用分号分隔。</td></tr>
+              <tr><th scope="row">别名</th><td data-zh="选填：简称、其他名称；多个值用分号分隔。" data-en="Optional: abbreviations or alternative names, separated by semicolons.">选填：简称、其他名称；多个值用分号分隔。</td></tr>
+            </tbody>
+          </table>
+          <p class="index-name-note" data-zh="“索引名称”就是组名，在管理页填写。CSV 的“名称”列用于期刊或会议，不用于填写组名。英文界面也使用这四个中文表头。" data-en="Index name is the group name entered on the management page. The 名称 column contains venue names. Keep these four Chinese headers even when using the English interface.">“索引名称”就是组名，在管理页填写。CSV 的“名称”列用于期刊或会议，不用于填写组名。英文界面也使用这四个中文表头。</p>
+          <div class="custom-label-example"><span class="rank-badge badge-custom" data-zh="自定义：经管目录 2026 A" data-en="Custom: Business list 2026 A">自定义：经管目录 2026 A</span><small data-zh="标签示例 · 等级由用户目录提供" data-en="Example badge · Tier supplied by the user list">标签示例 · 等级由用户目录提供</small></div>
+          <p class="index-limits" data-zh="最多 30 组；每组最多 50,000 条，每个文件不超过 5 MB。目录保存在当前浏览器本地，可分别启停、导出备份和删除。" data-en="Up to 30 indexes, 50,000 entries per index, and 5 MB per file. Lists stay in this browser and can be enabled, disabled, exported, or deleted independently.">最多 30 组；每组最多 50,000 条，每个文件不超过 5 MB。目录保存在当前浏览器本地，可分别启停、导出备份和删除。</p>
+        </aside>
+      </div>
+      <div class="ai-index-guide" id="ai-index-prompt">
+        <h3 data-zh="把这段提示词交给 AI" data-en="Give this prompt to your AI tool">把这段提示词交给 AI</h3>
+        <p data-zh="先把方括号里的内容换成你的要求，再连同名单文件或原文一起发送给常用 AI 工具。AI 用于整理、转换资料；生成后仍需对照原始名单核对。资料中的等级保留原样，无法确认的信息留空或单独列为待核项。" data-en="Replace the bracketed instructions with your requirements and send the prompt with your source file or text to your AI tool. Use AI to organize and convert the source, then verify the result against the original. Preserve published tiers and leave uncertain details blank or list them separately for review.">先把方括号里的内容换成你的要求，再连同名单文件或原文一起发送给常用 AI 工具。AI 用于整理、转换资料；生成后仍需对照原始名单核对。资料中的等级保留原样，无法确认的信息留空或单独列为待核项。</p>
+        <div class="prompt-actions"><button class="button button-primary" id="copy-index-prompt" type="button" data-zh="复制 AI 提示词" data-en="Copy AI prompt">复制 AI 提示词</button><a class="text-link" id="download-index-prompt" href="downloads/custom-index-ai-prompt-zh.txt" download data-zh="下载提示词文本" data-en="Download prompt text">下载提示词文本</a><span id="copy-index-status" role="status" aria-live="polite"></span></div>
+        <details class="prompt-details"><summary data-zh="展开查看完整提示词" data-en="Read the full prompt">展开查看完整提示词</summary><pre id="index-prompt-zh" data-language-only="zh">请根据我提供的原始名单，为“期刊会议等级与分区助手”创建一份可导入的 CSV 文件。
+
+我的目标：[填写目录名称、适用年份和学科/机构范围]
+资料：[上传 PDF/表格，粘贴名单原文，或提供发布机构的链接]
+等级规则：[保留原目录等级；没有分级则留空；如需转换，明确写出对应关系]
+
+请遵守以下规则：
+1. 只根据提供且能够读取、核实的资料整理。先核对发布机构、年份和范围；链接无法读取时，请我提供文件或原文。
+2. 表头必须依次为：名称,等级,ISSN,别名。不要增加其他列。每行只放一期刊或会议。
+3. “名称”必填，使用完整期刊/会议名称；保留 Workshop、Findings 等限定词。“等级”按上述规则填写，未分级则留空。
+4. ISSN 和别名选填。ISSN 保留为 1234-567X 这样的文本格式，不能确认就留空；多个 ISSN 或别名用英文分号分隔。
+5. 不要凭记忆补充期刊、会议、等级、ISSN 或别名。相同来源的同等级重复行合并；同一名称、别名或 ISSN 对应不同等级时，单独列出冲突让我确认。
+6. 输出逗号分隔的 UTF-8 CSV，优先使用带 BOM 的编码以便 Excel 打开。每个单元格用双引号包围，内容中的双引号写成两个双引号，空值写为 ""。
+7. 组名不写进 CSV。我会在扩展管理页的“索引名称”输入框单独填写。
+8. 优先提供可下载的 .csv 文件；若只能输出文本，请将 CSV 放在一个代码块内。数据来源、条目总数和待核项放在单独的说明中，不写进 CSV。
+
+请先检查列数、名称是否为空、重复与等级冲突，再交付文件。</pre><pre id="index-prompt-en" data-language-only="en" hidden>Create an importable CSV for Journal &amp; Conference Rank Assistant from the source list I provide.
+
+My goal: [list name, year, and subject or institution scope]
+Source: [attach a PDF/spreadsheet, paste the original list, or give the issuing body's URL]
+Tier rules: [preserve the original tiers; leave blank if unranked; state any requested mapping explicitly]
+
+Requirements:
+1. Use only supplied material you can read and verify. Check the issuer, year, and scope first. If a URL cannot be read, ask me for the file or original text.
+2. Use exactly these four headers in this order: 名称,等级,ISSN,别名. Add no other columns. Each row represents one journal or conference.
+3. 名称 is required and must contain the full venue name. Preserve qualifiers such as Workshop and Findings. Fill 等级 using my rules, or leave it blank if unranked.
+4. ISSN and 别名 are optional. Keep ISSNs as text, such as 1234-567X. Leave uncertain values blank. Separate multiple ISSNs or aliases with semicolons.
+5. Do not invent venues, tiers, ISSNs, or aliases from memory. Merge same-venue duplicates with the same tier. List conflicts involving a shared name, alias, or ISSN with different tiers separately for my confirmation.
+6. Produce comma-delimited UTF-8 CSV, preferably with a BOM for Excel. Enclose every cell in double quotes, escape embedded double quotes by doubling them, and represent empty values as "".
+7. Do not put the index group name in the CSV. I will enter it separately in Index name on the extension's management page.
+8. Prefer a downloadable .csv file. If you can only return text, place CSV in a single code block. Keep sources, the entry count, and unresolved items in a separate note outside the CSV.
+
+Check column counts, missing venue names, duplicates, and tier conflicts before delivering the file.</pre></details>
+        <details class="index-troubleshooting"><summary data-zh="导入失败或网页没有显示？" data-en="Import failed or no badge appeared?">导入失败或网页没有显示？</summary><ul><li data-zh="按导入页面显示的行号修正列数、空名称、ISSN 格式或等级冲突；用逗号分列、分号分隔多个别名。" data-en="Use the reported row numbers to fix column counts, missing names, ISSN formatting, or tier conflicts. Use commas between columns and semicolons between aliases.">按导入页面显示的行号修正列数、空名称、ISSN 格式或等级冲突；用逗号分列、分号分隔多个别名。</li><li data-zh="网页匹配的是期刊或会议来源。核对完整名称、网页使用的简称和可靠 ISSN；缺少来源信息时可能无法匹配。" data-en="Matching uses the journal or conference source. Check full names, abbreviations shown on the page, and reliable ISSNs. Pages without usable venue information may not match.">网页匹配的是期刊或会议来源。核对完整名称、网页使用的简称和可靠 ISSN；缺少来源信息时可能无法匹配。</li><li data-zh="确认这组索引已启用，弹窗中的自定义标签显示已开启，并刷新论文页面。筛选时，同组所选等级取并集，不同组之间取交集。" data-en="Check that the index and custom badge display are enabled, then refresh the paper page. Selected tiers within one index use OR; different indexes use AND.">确认这组索引已启用，弹窗中的自定义标签显示已开启，并刷新论文页面。筛选时，同组所选等级取并集，不同组之间取交集。</li></ul></details>
       </div>
     </section>
     <section class="section privacy-section" id="privacy">

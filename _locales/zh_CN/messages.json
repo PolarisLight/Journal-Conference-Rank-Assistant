@@ -367,5 +367,20 @@
   },
   "ui_all": {
     "message": "全部"
+  },
+  "ui_custom_indexes": {
+    "message": "自定义索引"
+  },
+  "ui_manage_custom_indexes": {
+    "message": "管理自定义索引"
+  },
+  "ui_import_your_journal_and_conference_lists_for_badges_and_filtering": {
+    "message": "导入自己的期刊和会议名单，用于显示标签与筛选。"
+  },
+  "ui_user_uploaded_custom_index": {
+    "message": "用户上传的自定义索引"
+  },
+  "ui_provided_by_a_user_uploaded_journal_or_conference_list_independently_of_the_built_in_official_indexe": {
+    "message": "由用户上传的期刊/会议目录提供，独立于插件内置的官方索引。"
   }
 }

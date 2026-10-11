@@ -20,14 +20,18 @@
     showAbs: true,
     showXinrui: true,
     showWarning: true,
+    showCustomIndexes: true,
+    customIndexes: [],
     hideWarnedJournals: false,
     colorTheme: "light",
     colorPalette: "vivid",
     resultFilters: { indexes: [], values: {} }
   };
   const STOP = new Set(["the", "of", "and", "for", "in", "on", "a", "an"]);
-  const state = { settings: DEFAULTS, shards: new Map(), shardPromises: new Map(), maxAliasWords: 12, lastScanDetail: "" };
+  const state = { settings: DEFAULTS, shards: new Map(), shardPromises: new Map(), maxAliasWords: 12, lastScanDetail: "", scanError: "", customMatcher: null, customLevels: null };
   let initialization = null;
+  let scanInFlight = null;
+  let rescanRequested = false;
   const controlDetails = new WeakMap();
   let tooltipHost = null;
   let tooltipPanel = null;
@@ -81,7 +85,9 @@
       for (const key of Object.keys(DEFAULTS)) {
         if (!changes[key]) continue;
         const nextValue = changes[key].newValue ?? DEFAULTS[key];
-        state.settings[key] = key === "language" ? I18N.normalize(nextValue) : nextValue;
+        state.settings[key] = key === "language" ? I18N.normalize(nextValue)
+          : key === "customIndexes" ? normalizedCustomIndexes(nextValue) : nextValue;
+        if (key === "customIndexes") state.customMatcher = state.customLevels = null;
         if (key === "colorTheme") syncColorTheme();
         else if (key === "colorPalette") syncColorPalette();
         else {
@@ -105,15 +111,69 @@
   });
 
   function setStatus(status, detail = "") {
-    document.documentElement.dataset.paperRankStatus = status;
-    document.documentElement.dataset.paperRankDetail = detail;
+    if (document.documentElement.dataset.paperRankStatus !== status) document.documentElement.dataset.paperRankStatus = status;
+    if (document.documentElement.dataset.paperRankDetail !== detail) document.documentElement.dataset.paperRankDetail = detail;
   }
 
   function getSettings() {
     return new Promise((resolve) => chrome.storage.local.get(DEFAULTS, (stored) => resolve({
       ...stored,
-      language: I18N.normalize(stored.language)
+      language: I18N.normalize(stored.language),
+      customIndexes: normalizedCustomIndexes(stored.customIndexes)
     })));
+  }
+
+  function normalizedCustomIndexes(value) {
+    return globalThis.RankAssistantCustomIndexes?.normalizeIndexes(value) || [];
+  }
+
+  function customMatchesForContainer(container, record, verifiedVenueTitle = "") {
+    const library = globalThis.RankAssistantCustomIndexes;
+    if (!library || !state.settings.customIndexes.length) return [];
+    if (!state.customMatcher) state.customMatcher = library.createMatcher(state.settings.customIndexes);
+    let sources = candidateTexts(container);
+    if (siteKind() !== "scholar") {
+      let rawSource = fingerprintNativeText(venueNode(container));
+      if (siteKind() === "baidu-scholar") rawSource = rawSource.match(/《([^》]+)》/)?.[1] || rawSource.split(/\s+-\s+/)[1] || rawSource;
+      if (/\.{3,}|…/.test(rawSource.normalize("NFKC"))) sources = [];
+      const scopes = rawSource.match(/\b(?:workshops?|findings|challenges?)\b/gi) || [];
+      if (scopes.length) sources = sources.filter((source) => scopes.every((scope) => String(source).toLowerCase().includes(scope.toLowerCase())));
+      if (isScholarlyDocumentPage() || isPublisherDocumentPage() || isResearchGatePublicationPage()) sources.push(...documentVenueSources());
+    }
+    if (siteKind() === "scholar") {
+      const native = container.matches?.(".gsc_a_tr") ? container.querySelectorAll(".gs_gray")[1] : container.querySelector(".gs_a");
+      const raw = fingerprintNativeText(native);
+      sources = [container.matches?.(".gsc_a_tr") ? raw : (raw.split(/\s+-\s+/)[1] || "")];
+      // Custom catalogs may contain arbitrary names. Only explicit source
+      // fields can corroborate them; generic leaves can contain author names.
+      for (const node of container.querySelectorAll(".easyScholarPaperFlag, .easyScholarTemp, [class*='easyScholar'], [data-journal], [data-source], [data-venue], [data-full-text], .journal-title, .venue-title, .publication-title")) {
+        if (isScholarAuthorField(node) || node.closest(".gs_rt, .gsc_a_at, .gs_rs, .gs_fl, .gs_or_ggsm, .rank-assistant-row, .rank-assistant-venue-detail")) continue;
+        sources.push(fingerprintNativeText(node));
+        for (const name of ["data-journal", "data-source", "data-venue", "data-full-text", "title"]) sources.push(node.getAttribute(name));
+      }
+    }
+    // Document ISSNs identify this journal only on its own article or home
+    // page. Search cards must not inherit a document-wide ISSN.
+    if (siteKind() === "publisher" && (isPublisherDocumentPage() || isJournalLandingPage())) sources.push(...publisherIssns());
+    if (verifiedVenueTitle) sources.push(verifiedVenueTitle);
+    return state.customMatcher({ record, sources: [...new Set(sources.filter(Boolean).flatMap(customSourceCandidates))] });
+  }
+
+  function customSourceCandidates(value) {
+    const text = String(value || "").trim();
+    // Reject the original before removing bibliographic tails. An ellipsis
+    // after a year still marks an incomplete identity. Scope words such as
+    // Workshops and Findings remain part of the name throughout this path.
+    if (!text || /\.{3,}|…/.test(text.normalize("NFKC"))) return [];
+    const withoutYear = text.replace(/(?:[,.;]\s*|\s+)(?:19|20)\d{2}(?:\s*[;:,]\s*\d+(?:\s*\([^)]*\))?(?:\s*:\s*\d+(?:[-–]\d+)?)?)?\.?\s*$/, "").trim();
+    const withoutPages = text.replace(/\s+\d+\s*(?:\(\s*\d+\s*\))?\s*:\s*\d+(?:[-–]\d+)?\.?\s*$/, "").trim();
+    return [...new Set([text, withoutYear, withoutPages].filter(Boolean))];
+  }
+
+  function customFilterLevels() {
+    if (!state.customLevels) state.customLevels = new Map(state.settings.customIndexes.filter((index) => index.enabled)
+      .map((index) => ["custom:" + index.id, new Set(index.entries.map((entry) => entry.level))]));
+    return state.customLevels;
   }
 
   function siteKind() {
@@ -145,11 +205,13 @@
     ".results-item",
     ".article-listing",
     ".issue-item",
+    ".rank-assistant-publication",
     "li.app-card-open",
     "li[class*='search-result']"
   ].join(", ");
   const PUBLISHER_TITLE_LINK_SELECTOR = [
     "a[href*='/article/']",
+    "a[href*='/article?']",
     "a[href*='/articles/']",
     "a[href*='/doi/']",
     "a[href*='/document/']",
@@ -164,6 +226,7 @@
 
   function resultSelector() {
     const site = siteKind();
+    if (isScholarlyDocumentPage()) return "main, article[role='main'], [role='main'], #content-inner, .paper-detail, h1";
     if (site === "dblp") return "li.entry, article.entry";
     if (site === "scholar") return ".gs_r.gs_or.gs_scl, .gs_r, .gsc_a_tr";
     if (site === "arxiv") return "li.arxiv-result";
@@ -197,11 +260,19 @@
 
   function resultContainers() {
     const site = siteKind();
+    if (isScholarlyDocumentPage()) {
+      return [document.querySelector("main article, article[role='main'], main, [role='main'], #content-inner, .paper-detail") || document.body];
+    }
     if (site === "pubmed" && isPubmedArticlePage()) {
       return [document.querySelector("main, article[role='main'], #enc-abstract") || document.body];
     }
     if (site === "scholar" && location.pathname.startsWith("/citations")) {
       return document.querySelectorAll(".gsc_a_tr");
+    }
+    if (site === "scholar") {
+      // Scholar also uses gs_r for controls such as the Create alert row.
+      // Compact publication cards still carry a native paper-title node.
+      return [...document.querySelectorAll(".gs_r")].filter((node) => node.querySelector(".gs_rt, .gsc_a_at"));
     }
     if (site === "dblp" && location.pathname.startsWith("/search")) {
       const section = document.querySelector("#completesearch-publs");
@@ -242,6 +313,16 @@
       return topLevelContainers(document.querySelectorAll(".publication-item, .nova-legacy-v-publication-item, .research-item, .result-item, [class*='publication-item']"));
     }
     if (site === "publisher") {
+      // Definition-list search layouts keep each title and its metadata in
+      // adjacent dt/dd siblings. Group the native nodes without cloning them.
+      for (const title of document.querySelectorAll("dl.search-results-list > dt.search-results-title")) {
+        const description = title.nextElementSibling;
+        if (!description?.matches("dd")) continue;
+        const group = document.createElement("div");
+        group.className = "rank-assistant-publication";
+        title.before(group);
+        group.append(title, description);
+      }
       // A document page is one logical item.  Do this before looking for
       // related-article cards, otherwise publisher sidebars win the scan.
       if (isPublisherDocumentPage()) {
@@ -255,14 +336,14 @@
         return [document.querySelector("main, header, [role='main']") || document.body];
       }
       const direct = document.querySelectorAll(PUBLISHER_RESULT_SELECTOR);
-      if (direct.length) return direct;
+      if (direct.length) return topLevelContainers(direct);
       const linked = containersFromTitleLinks(
         PUBLISHER_TITLE_LINK_SELECTOR,
         "article, li, .search-result-item, .result-item, .results-item, [class*='search-result'], [class*='article-list']"
       );
       if (linked.length) return linked;
       const citationTitle = document.querySelector('meta[name="citation_title"]')?.content;
-      const citationJournal = document.querySelector('meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="journal_title"], meta[name="bepress_citation_journal_title"]')?.content;
+      const citationJournal = documentVenueSources()[0];
       const article = document.querySelector("main article, article[role='main'], main");
       const journalLanding = /\/(?:journal|journals|loi|about)(?:\/|$)/i.test(location.pathname);
       const journalHeading = document.querySelector("main h1, header h1, .journal-title");
@@ -290,15 +371,7 @@
         state.shards.set(key, updated.shard);
         return updated.shard;
       }
-      const response = await fetch(chrome.runtime.getURL("extension/data/catalog-shard-" + key + ".private.json"));
-      if (!response.ok) {
-        if (response.status === 404) return null;
-        throw new Error("failed to load data shard " + key + ": HTTP " + response.status);
-      }
-      const shard = await response.json();
-      state.shards.set(key, shard);
-      await idle();
-      return shard;
+      throw new Error(updated?.error || "failed to load encrypted data shard " + key);
     })();
     state.shardPromises.set(key, promise);
     try {
@@ -317,7 +390,15 @@
   // Normalising the possessive before lookup makes this a title equivalence,
   // rather than a one-off alias for a particular npj journal.
   function venueKey(value) {
-    return N.normalize(String(value || "").replace(/([\p{L}\p{N}])['’]s\b/gu, "$1s"));
+    return N.normalize(String(value || "").replace(/([\p{L}\p{N}])['’]s\b/giu, "$1s"))
+      .replace(/ß/g, "ss").replace(/ς/g, "σ");
+  }
+
+  function catalogVenueKey(value) {
+    // The packaged builder preserves accents and splits apostrophes. Retain
+    // its shard hint while runtime aliases use accent/possessive equivalence.
+    return String(value || "").toLowerCase().replace(/ß/g, "ss").replace(/ς/g, "σ")
+      .replace(/&/g, " and ").replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ");
   }
 
   function abbreviationKey(value) {
@@ -334,15 +415,21 @@
     return null;
   }
 
+  function arxivVenueNode(container) {
+    return firstMatchingTextNode(container, [".journal-ref", ".comments", "p"], /^Journal ref(?:erence)?\s*:/i) ||
+      firstMatchingTextNode(container, [".comments", "p"], /^Comments\s*:/i);
+  }
+
   function metadataNode(container) {
     const site = siteKind();
+    if (isScholarlyDocumentPage()) return scholarlyDocumentVenueNode(container) || container;
     if (site === "dblp") return container.querySelector(".data, cite") || container;
     if (site === "scholar") {
       if (container.matches?.(".gsc_a_tr")) return container.querySelectorAll(".gs_gray")[1] || container.querySelector(".gs_gray") || container;
       return container.querySelector(".gs_a") || container.querySelector(".gs_ri") || container;
     }
     if (site === "pubmed") return container.querySelector(".docsum-journal-citation") || container;
-    if (site === "arxiv") return firstMatchingTextNode(container, [".comments", ".journal-ref", "p"], /^(Comments|Journal reference):/i) || container;
+    if (site === "arxiv") return arxivVenueNode(container) || container;
     if (site === "semantic-scholar") return container.querySelector('a[href*="/venue/"], [data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]') || container;
     if (site === "openalex") return container.querySelector('[data-testid="source"], [data-testid="venue"], [class*="source"], [class*="venue"]') || container;
     if (site === "cnki") return container.querySelector('td.source a, .source a, [data-field="source"] a') || container.querySelector('td.source, .source, [data-field="source"]') || container;
@@ -356,6 +443,7 @@
 
   function titleNode(container) {
     const site = siteKind();
+    if (isScholarlyDocumentPage()) return container.querySelector("h1, .title");
     if (site === "dblp") return container.querySelector('span.title[itemprop="name"], .title');
     if (site === "scholar") return container.querySelector(".gsc_a_at, .gs_rt");
     if (site === "arxiv") return container.querySelector(".title");
@@ -369,7 +457,7 @@
     if (site === "researchgate") return container.querySelector("h1") || researchGatePublicationLink(container);
     if (site === "publisher") {
       return container.querySelector(
-        "[data-test*='title'] a, [data-testid*='title'] a, .article-title a, .result-title a, .title a, h2 a, h3 a, " + PUBLISHER_TITLE_LINK_SELECTOR
+        "dt.search-results-title a, [data-test*='title'] a, [data-testid*='title'] a, .article-title a, .result-title a, .title a, h2 a, h3 a, " + PUBLISHER_TITLE_LINK_SELECTOR
       ) || (container.matches?.("main, article") ? container.querySelector("h1") : null);
     }
     return null;
@@ -377,13 +465,14 @@
 
   function venueNode(container) {
     const site = siteKind();
+    if (isScholarlyDocumentPage()) return scholarlyDocumentVenueNode(container);
     if (site === "dblp") {
       return container.querySelector(
         '.data [itemprop="isPartOf"] a, cite [itemprop="isPartOf"] a, .data a[href*="/db/"], cite a[href*="/db/"], .rank-assistant-fallback-venue'
       );
     }
     if (site === "scholar" || site === "pubmed") return metadataNode(container);
-    if (site === "arxiv") return firstMatchingTextNode(container, [".journal-ref", ".comments", "p"], /^(Journal reference|Comments):/i);
+    if (site === "arxiv") return arxivVenueNode(container);
     if (site === "semantic-scholar") return container.querySelector('a[href*="/venue/"], [data-testid="paper-meta"], [data-selenium-selector="paper-venue"], .cl-paper-venue, [class*="venue"]');
     if (site === "openalex") return container.querySelector('[data-testid="source"], [data-testid="venue"], [class*="source"], [class*="venue"]');
     if (site === "cnki") return container.querySelector('td.source a, .source a, [data-field="source"] a') || container.querySelector('td.source, .source, [data-field="source"]');
@@ -396,11 +485,11 @@
   }
 
   function publisherVenueNode(container) {
-    return container.querySelector(
+    return [...container.querySelectorAll(
       "[data-test*='journal'], [data-testid*='journal'], [data-test*='publication'], [data-testid*='publication'], " +
-      ".publication-title, .journal-title, .meta__journal, .result-journal, .search-result__publication, " +
+      ".publication-title, .journal-title, .meta__journal, .result-journal, .search-result__publication, [id^='article-result-'][id$='-journal-name'], " +
       "a[href*='/journal/'], a[href*='/journals/']"
-    );
+    )].find((node) => !node.closest(".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail")) || null;
   }
 
   function topLevelContainers(containers) {
@@ -443,27 +532,35 @@
 
   function suppressAccessChallengeOutput() {
     document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
-    document.querySelectorAll("[data-paper-rank-processed], [data-paper-rank-loading], [data-paper-rank-matched]").forEach((node) => {
+    document.querySelectorAll("[data-paper-rank-processed], [data-paper-rank-loading], [data-paper-rank-matched], [data-paper-rank-custom-membership]").forEach((node) => {
       delete node.dataset.paperRankProcessed;
       delete node.dataset.paperRankLoading;
       delete node.dataset.paperRankMatched;
+      delete node.dataset.paperRankCustomMembership;
     });
-    document.documentElement.dataset.paperRankHasResults = "0";
+    if (document.documentElement.dataset.paperRankHasResults !== "0") document.documentElement.dataset.paperRankHasResults = "0";
     state.lastScanDetail = "access challenge page skipped";
   }
 
   function journalHeaderNode() {
-    return document.querySelector(
+    const excluded = ".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail";
+    const explicit = [...document.querySelectorAll(
       "[data-test*='journal-title'], [data-testid*='journal-title'], .journal-title h1, .journal-title, " +
       ".journal-header h1, .journal-header__title, .publication-header__title, .journal-banner h1, " +
-      "[class*='journal-banner'] h1, [class*='journal-header'] h1, main h1, header h1, h1"
-    );
+      "[class*='journal-banner'] h1, [class*='journal-header'] h1, [class*='journal-name'], [class*='journalName']"
+    )].find((node) => !node.closest(excluded));
+    if (explicit) return explicit;
+    const currentPath = location.pathname.replace(/\/$/, "");
+    return [...document.querySelectorAll("a[href*='/journal/'], a[href*='/journals/']")].find((link) => {
+      if (link.closest(excluded)) return false;
+      try { return new URL(link.href, location.href).pathname.replace(/\/$/, "") === currentPath; } catch (_) { return false; }
+    }) || null;
   }
 
   function researchGateVenueNode(container) {
-    return container.querySelector(
+    return [...container.querySelectorAll(
       "a[href*='/journal/'], [data-testid*='journal'], [data-testid*='publication-venue'], .publication-meta__journal, .publication-title"
-    );
+    )].find((node) => !node.closest(".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail")) || null;
   }
 
   function researchGateVenueFromText(value) {
@@ -516,50 +613,116 @@
     return siteKind() === "pubmed" && /^\/\d+\/?$/.test(location.pathname);
   }
 
+  function isScholarlyDocumentPage() {
+    const site = siteKind();
+    const path = location.pathname;
+    if (site === "arxiv") return /^\/(?:abs|html)\/[^/]+/i.test(path);
+    if (site === "openalex") return /^\/(?:works\/)?W\d+\/?$/i.test(path);
+    if (site === "aminer") return /^\/pub\/[^/]+/i.test(path);
+    if (site === "semantic-scholar") return /^\/paper\/[^/]+/i.test(path);
+    if (site === "baidu-scholar") return /^\/usercenter\/paper\/show\/?$/i.test(path);
+    if (site === "cnki") return /^\/(?:kcms2\/article\/abstract|(?:kcms|kns8s)?\/?detail\/detail\.aspx)/i.test(path);
+    return false;
+  }
+
+  function scholarlyDocumentVenueNode(container) {
+    return [...container.querySelectorAll(
+      "[itemprop='isPartOf'] [itemprop='name'], [data-field='source'], [data-testid='source'], " +
+      "[data-testid='venue'], [data-testid='paper-venue'], [data-selenium-selector='paper-venue'], " +
+      "a[href*='/venue/'], .cl-paper-venue, .jref, .journal-ref, .journal-reference, .source-title, " +
+      ".publication-venue, .conf-info-zone .venue-link, .venue-link, .top-tip .source, .source a"
+    )].find((source) => {
+      const blocked = source.closest(".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail");
+      if (!blocked) return true;
+      // A current-document journal-reference field is a source, while a
+      // journal-reference node inside a bibliography remains excluded.
+      return blocked === source && source.matches(".journal-reference") && !source.parentElement?.closest(".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail");
+    }) || null;
+  }
+
+  function documentVenueSources() {
+    const values = [];
+    const add = (value) => {
+      const cleaned = String(value || "").trim();
+      if (!cleaned || /^(arxiv(?:\.org)?|researchgate|openalex|semantic scholar|aminer|springer(?:link| nature link)?|sciencedirect|elsevier|wiley(?: online library)?|sage journals?|oxford academic|emerald(?: publishing)?|taylor and francis|cambridge core|ieee xplore|acm digital library)$/i.test(cleaned)) return;
+      if (!values.includes(cleaned)) values.push(cleaned);
+    };
+    const fields = ["citation_journal_title", "citation_conference_title", "citation_journal_abbrev", "prism.publicationName", "journal_title", "bepress_citation_journal_title", "dc.source", "dc.relation.ispartof", "dcterms.ispartof"];
+    for (const field of fields) {
+      for (const meta of document.querySelectorAll(`meta[name="${field}" i], meta[property="${field}" i]`)) add(meta.content);
+    }
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        const data = JSON.parse(script.textContent || "null");
+        const roots = Array.isArray(data) ? data : (Array.isArray(data?.["@graph"]) ? data["@graph"] : [data]);
+        const articles = roots.filter((item) => item && /(?:ScholarlyArticle|Article|CreativeWork)$/i.test(String(item["@type"] || "")) && item.isPartOf);
+        for (const article of articles) {
+          if (articles.length > 1) {
+            const address = article.url || article["@id"];
+            if (!address || new URL(address, location.href).pathname !== location.pathname) continue;
+          }
+          const sources = Array.isArray(article.isPartOf) ? article.isPartOf : [article.isPartOf];
+          for (const source of sources) {
+            if (typeof source === "string") continue;
+            add(source?.name);
+            add(source?.isPartOf?.name);
+          }
+        }
+      } catch (_) { /* Malformed structured metadata is not publication evidence. */ }
+    }
+    return values;
+  }
+
+  function currentSourceText(root) {
+    const copy = root.cloneNode(true);
+    copy.querySelectorAll("h1, h2, h3, .title, a[href*='/publication/'], .references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+    copy.querySelectorAll("div, p, li, dt, dd, br").forEach((node) => node.append(copy.ownerDocument.createTextNode("\n")));
+    return copy.textContent || "";
+  }
+
   function isPublisherDocumentPage() {
     if (siteKind() !== "publisher" || isJournalLandingPage()) return false;
+    if (/search|dosearch/i.test(location.pathname)) return false;
     if (/\/(?:article|articles|doi|document|content)\//.test(location.pathname)) return true;
-    return Boolean(document.querySelector('meta[name="citation_title"], meta[name="citation_journal_title"], meta[name="prism.publicationName"]'));
+    return Boolean(document.querySelector('meta[name="citation_title"]')) || documentVenueSources().length > 0;
   }
 
   function researchGateDocumentVenue() {
-    const meta = document.querySelector('meta[name="citation_journal_title"], meta[name="dc.source"], meta[name="prism.publicationName"]');
-    if (meta?.content?.trim()) return meta.content.trim();
-    for (const node of document.querySelectorAll('script[type="application/ld+json"]')) {
-      const match = (node.textContent || "").match(/"isPartOf"\s*:\s*\{[^{}]{0,800}?"name"\s*:\s*"([^"]+)"/i);
-      if (match?.[1]) return match[1];
-    }
-    const linked = (document.querySelector("a[href*='/journal/'], [data-testid*='journal']")?.textContent || "").trim();
+    const source = documentVenueSources()[0];
+    if (source) return source;
+    const root = document.querySelector("main, [role='main'], .nova-legacy-l-page__main") || document.body;
+    const linked = (researchGateVenueNode(root)?.textContent || "").trim();
     if (linked) return linked;
-    // ResearchGate sometimes exposes the journal only below the paper title.
-    return researchGateVenueFromText(document.body?.innerText || "");
+    return researchGateVenueFromText(currentSourceText(root));
   }
 
   function researchGateDoi(root = document) {
     const clean = (value) => String(value || "")
       .replace(/(?:ISBN|ISSN|PMID|PMCID|CITATIONS?|READS?)[:\s].*$/i, "")
       .replace(/[.,;:)>\]}]+$/g, "");
-    for (const selector of ['meta[name="citation_doi"]', 'meta[name="dc.identifier"]', 'meta[name="prism.doi"]']) {
-      const value = root.querySelector?.(selector)?.content || "";
+    const metadataRoot = isResearchGatePublicationPage() ? document : root;
+    for (const selector of ['meta[name="citation_doi" i]', 'meta[name="dc.identifier" i]', 'meta[name="prism.doi" i]', 'meta[property="prism.doi" i]']) {
+      const value = metadataRoot.querySelector?.(selector)?.content || "";
       const match = value.match(/10\.\d{4,9}\/[\w.()/:;-]+/i);
       if (match) return clean(match[0]);
     }
     for (const link of root.querySelectorAll?.('a[href*="doi.org/"]') || []) {
+      if (link.closest(".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail")) continue;
       const match = (link.href || "").match(/doi\.org\/(10\.\d{4,9}\/[\w.()/:;-]+)/i);
       if (match) return clean(decodeURIComponent(match[1]));
     }
-    const text = root === document ? (document.body?.innerText || "") : (root.innerText || root.textContent || "");
-    return clean(text.match(/\b10\.\d{4,9}\/[\w.()/:;-]+/i)?.[0]);
+    const text = currentSourceText(root === document ? document.body : root);
+    return clean(text.match(/\bDOI\s*[:：]\s*(10\.\d{4,9}\/[\w.()/:;-]+)/i)?.[1]);
   }
 
   function publisherDocumentVenue() {
-    const meta = document.querySelector('meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="journal_title"], meta[name="bepress_citation_journal_title"], meta[name="dc.source"]');
-    const value = (meta?.content || "").trim();
-    if (value && !/^(springer(?:link| nature link)?|sciencedirect|elsevier|wiley(?: online library)?|sage journals?|oxford academic|emerald(?: publishing)?|taylor and francis|cambridge core|ieee xplore|acm digital library)$/i.test(value)) return value;
-    return (document.querySelector(
+    const value = documentVenueSources()[0];
+    if (value) return value;
+    const source = [...document.querySelectorAll(
       "[data-test*='journal-title'], [data-testid*='journal-title'], header .journal-title, main .journal-title, " +
-      "a[aria-label*='journal'], .publication-header__title, main h1, header h1, h1"
-    )?.textContent || document.title || "").trim();
+      "a[aria-label*='journal'], .publication-header__title"
+    )].find((node) => !node.closest(".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail"));
+    return (source?.textContent || "").trim();
   }
 
   function publisherPageTitleCandidates() {
@@ -573,16 +736,15 @@
       const withoutPublisher = cleaned.replace(/\s+[-|｜]\s+(?:wiley(?: online library)?|nature(?: portfolio)?|springer(?: nature)?|emerald(?: publishing)?|sage journals?|oxford academic|taylor\s*&\s*francis).*$/i, "").trim();
       if (withoutPublisher && withoutPublisher !== cleaned && !values.includes(withoutPublisher)) values.push(withoutPublisher);
     };
-    for (const meta of document.querySelectorAll('meta[name="citation_journal_title"], meta[name="prism.publicationName"], meta[name="journal_title"], meta[name="bepress_citation_journal_title"], meta[property="og:title"], meta[name="twitter:title"]')) add(meta.content);
+    for (const source of documentVenueSources()) add(source);
     // Journal homes (notably the redesigned Emerald pages) often have no
     // citation metadata.  Their visible banner is nevertheless authoritative.
     if (isJournalLandingPage()) add(journalHeaderNode()?.textContent);
     // OUP frequently renders the journal identity as a masthead image.  Its
     // alt text is a reliable full title when there is no textual h1.
     if (location.hostname === "academic.oup.com" && isJournalLandingPage()) {
-      for (const image of document.querySelectorAll("img[alt]")) add(image.alt);
+      for (const image of document.querySelectorAll("header img[alt], .journal-header img[alt], .journal-banner img[alt], img[alt][src*='masthead']")) add(image.alt);
     }
-    add(document.title);
     return values;
   }
 
@@ -637,6 +799,10 @@
 
   function candidateText(container) {
     const site = siteKind();
+    if (isScholarlyDocumentPage()) {
+      return (documentVenueSources()[0] || scholarlyDocumentVenueNode(container)?.textContent || "").trim()
+        .replace(/^(?:Journal ref(?:erence)?|Journal|Source|来源|刊名)\s*[:：]\s*/i, "").trim();
+    }
     if (site === "dblp") {
       const venue = venueNode(container);
       if (venue) return venue.textContent || "";
@@ -645,7 +811,10 @@
       const candidates = semanticScholarVenueCandidates(container);
       if (candidates.length) return candidates[0];
     }
-    const raw = (metadataNode(container).textContent || "").trim();
+    const metadata = metadataNode(container);
+    const nativeMetadata = site === "scholar" ? metadata.cloneNode(true) : metadata;
+    if (site === "scholar") nativeMetadata.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+    const raw = (nativeMetadata.textContent || "").trim();
     if (site === "scholar") {
       if (container.matches?.(".gsc_a_tr")) {
         return raw
@@ -662,7 +831,7 @@
       }
       return raw.replace(/\b(?:19|20)\d{2}\b.*$/, "").replace(/[.;,\s]+$/, "").trim();
     }
-    if (site === "arxiv") return raw.replace(/^(Comments|Journal reference):\s*/i, "").trim();
+    if (site === "arxiv") return (arxivVenueNode(container)?.textContent || "").trim().replace(/^(Comments|Journal ref(?:erence)?)\s*:\s*/i, "").trim();
     if (site === "cnki" || site === "wanfang") {
       const venue = venueNode(container);
       if (venue) return (venue.textContent || "").trim();
@@ -681,9 +850,9 @@
         : "";
     }
     if (site === "researchgate") {
-      if (isResearchGatePublicationPage()) return researchGateDocumentVenue() || raw;
+      if (isResearchGatePublicationPage()) return researchGateDocumentVenue();
       const perResult = (researchGateVenueNode(container)?.textContent || "").trim();
-      const fromText = researchGateVenueFromText(container.innerText || container.textContent || "");
+      const fromText = researchGateVenueFromText(currentSourceText(container));
       // A profile/search card must never inherit a journal from the open page.
       // An ordinary keyword result without an explicit source is not evidence
       // that the query phrase is the publication venue.
@@ -691,11 +860,63 @@
     }
     if (site === "publisher") {
       if (isJournalLandingPage()) return (journalHeaderNode()?.textContent || publisherDocumentVenue()).trim();
+      if (isPublisherDocumentPage()) return publisherDocumentVenue();
       const perResult = (publisherVenueNode(container)?.textContent || "").trim();
-      return perResult || publisherDocumentVenue();
+      return perResult;
     }
     return raw;
   }
+  function publicationSourceCandidates(value) {
+    const values = [];
+    const add = (text) => {
+      text = String(text || "").trim();
+      if (text && !values.includes(text)) values.push(text);
+    };
+    add(value);
+    // Normalize only the publication source, never the paper title/snippet.
+    // Keep ellipses so truncated names still pass the ambiguity checks.
+    for (let index = 0; index < values.length && index < 16; index += 1) {
+      const text = values[index];
+      add(text.replace(/^(?:accepted|published|presented|appearing|forthcoming)\s+(?:at|in|to|by)\s+/i, ""));
+      add(text.replace(/^(?:proceedings|proc\.?)\s+(?:(?:of|from)\s+)?(?:the\s+)?/i, ""));
+      add(text.replace(/^(?:19|20)\d{2}\s+/, ""));
+      add(text.replace(/^\d+(?:st|nd|rd|th)\s+(?:annual\s+)?/i, ""));
+      add(text.replace(/\s*\([A-Z][A-Z0-9-]{2,11}(?:\s+(?:19|20)\d{2})?\)\s*$/, ""));
+      add(text.replace(/\s+\d+(?:\s*\([^)]*\))?(?:\s*[:,].*)?$/, ""));
+      add(text.replace(/(?:[.,;]\s*)?(?:19|20)\d{2}(?:\s|[.,;:(]).*$/, ""));
+      add(text.replace(/^(?:(?:IEEE|ACM|CVF|IFIP|IET|SIAM)(?:\s*[/&]\s*(?:IEEE|ACM|CVF|IFIP|IET|SIAM))*\s+)+(?=(?:(?:International|European|Asian|Annual)\s+)*(?:Conference|Symposium|Workshop|Meeting)\b)/i, ""));
+      add(text.replace(/^(?:(?:international|annual)\s+)?(?:conference|symposium)\s+on\s+/i, ""));
+    }
+    // Book-series titles can name conference proceedings. The matcher below
+    // accepts this variant only with both a catalogued series and conference.
+    for (const text of values.slice()) {
+      if (/^advances in\s+/i.test(text)) add(text.replace(/^advances in\s+/i, "Conference on "));
+    }
+    return values;
+  }
+
+  function scholarSourceCandidates(value) {
+    return publicationSourceCandidates(value);
+  }
+
+  function isScholarAuthorField(node) {
+    if (node.closest?.('a[href*="/citations?user="]')) return true;
+    const citation = node.closest?.(".gs_a");
+    if (citation) {
+      const sourceStart = (citation.textContent || "").search(/\s+-\s+/);
+      if (sourceStart >= 0) {
+        const before = document.createRange();
+        before.setStart(citation, 0);
+        before.setEndBefore(node);
+        return before.toString().length < sourceStart;
+      }
+    }
+    const profileRow = node.closest?.(".gsc_a_tr");
+    const gray = node.closest?.(".gs_gray");
+    const profileFields = profileRow?.querySelectorAll(".gs_gray");
+    return Boolean(gray && profileFields?.length > 1 && gray === profileFields[0]);
+  }
+
   function scholarVisibleVenueCandidates(container) {
     const values = [];
     const add = (value) => {
@@ -720,7 +941,9 @@
     // Google Scholar and companion extensions render source names using
     // different classes. Leaf text keeps this selector-independent.
     for (const node of container.querySelectorAll("a, span")) {
+      if (node.closest?.(".gs_rt, .gsc_a_at, .gs_rs, .gs_fl, .gs_or_ggsm, .rank-assistant-row, .rank-assistant-venue-detail")) continue;
       if (node.children.length) continue;
+      if (isScholarAuthorField(node)) continue;
       add(node.textContent);
       add(node.getAttribute("title"));
     }
@@ -747,7 +970,9 @@
     for (const node of container.querySelectorAll("*")) {
       if (node.closest?.(".rank-assistant-row, .rank-assistant-venue-detail, #rank-assistant-shared-tooltip")) continue;
       if (node.matches?.(".gs_a, .gs_rt, .gsc_a_at")) continue;
+      if (node.closest?.(".gs_rt, .gsc_a_at, .gs_rs, .gs_fl, .gs_or_ggsm")) continue;
       if (node.children.length) continue;
+      if (isScholarAuthorField(node)) continue;
       add(node.textContent);
       add(node.getAttribute?.("data-journal"));
       add(node.getAttribute?.("data-source"));
@@ -760,7 +985,7 @@
     // Keep a stable snapshot of the text that may identify a venue.  This is
     // used to distinguish EasyScholar's delayed venue enrichment from normal
     // Google Scholar page churn (which must not clear existing badges).
-    return scholarExplicitVenueCandidates(container).map((value) => N.normalize(value)).join("\u001f");
+    return [candidateText(container), ...scholarExplicitVenueCandidates(container)].map((value) => N.normalize(value)).join("\u001f");
   }
 
   function pubmedVisibleVenueCandidates(container) {
@@ -783,13 +1008,16 @@
   }
 
   function candidateTexts(container) {
-    if (siteKind() === "semantic-scholar") return semanticScholarVenueCandidates(container);
+    if (siteKind() === "semantic-scholar" && !isScholarlyDocumentPage()) return semanticScholarVenueCandidates(container);
     const candidates = [];
     const add = (value) => {
       const cleaned = String(value || "").trim();
       if (cleaned && !candidates.includes(cleaned)) candidates.push(cleaned);
     };
     add(candidateText(container));
+    if (isScholarlyDocumentPage() || isPublisherDocumentPage() || isResearchGatePublicationPage()) {
+      for (const source of documentVenueSources()) add(source);
+    }
     if (siteKind() === "scholar") {
       const source = candidates[0] || "";
       const normalizedSource = N.normalize(source);
@@ -836,16 +1064,20 @@
       const matches = String(value || "").match(/\b\d{4}[- ]?\d{3}[\dX]\b/gi) || [];
       for (const match of matches) found.add(match.replace(/[^0-9X]/gi, "").toUpperCase());
     };
-    for (const meta of document.querySelectorAll('meta[name*="issn" i], meta[property*="issn" i], meta[name="dc.identifier"]')) add(meta.content);
-    add(location.pathname);
-    const main = document.querySelector("main, header");
-    add(main?.innerText || main?.textContent || "");
-    // Some publisher homes put their authoritative ISSN outside <main>:
-    // Emerald uses the cover/issue area, while Oxford Academic puts it in the
-    // journal footer.  Use that page-level identifier only on journal landing
-    // pages, where it identifies the journal itself rather than a cited work.
-    if ((/(^|\.)emerald\.com$/.test(location.hostname) || location.hostname === "academic.oup.com") && isJournalLandingPage()) {
-      add(document.body?.innerText || document.body?.textContent || "");
+    for (const meta of document.querySelectorAll('meta[name="citation_issn" i], meta[name="prism.issn" i], meta[property="prism.issn" i], meta[name="prism.eissn" i], meta[property="prism.eissn" i], meta[name="issn" i], meta[name="eissn" i], meta[name="dc.identifier" i]')) add(meta.content);
+    // A journal's own masthead and explicitly labelled homepage ISSNs are
+    // identity fields. Article body text and reference lists are not.
+    for (const node of document.querySelectorAll(".journal-header, .journal-banner, [data-test='journal-issn'], [data-testid='journal-issn']")) {
+      if (!node.closest(".references, #references, [role='doc-bibliography']")) add(node.textContent);
+    }
+    if (isJournalLandingPage()) {
+      for (const node of document.querySelectorAll("main div, main p, main span, header div, footer div, footer p, footer span, [itemprop='issn']")) {
+        if (node.children.length || node.closest(".references, #references, [role='doc-bibliography'], [class*='reference' i], [id*='reference' i], .rank-assistant-row, .rank-assistant-venue-detail")) continue;
+        const value = (node.textContent || "").trim();
+        if (node.matches("[itemprop='issn']") || /^(?:(?:print|online|electronic|e|p)[ -]*)?ISSN\s*[:：]?\s*\d{4}[- ]?\d{3}[\dX]/i.test(value)) add(value);
+      }
+      const journalIdentifier = location.pathname.match(/\/(?:journal|journals|issn)\/(\d{4}[- ]?\d{3}[\dX])(?:\/|$)/i)?.[1];
+      if (journalIdentifier) add(journalIdentifier);
     }
     return [...found];
   }
@@ -865,9 +1097,8 @@
       .map((value) => index[String(value || "").replace(/[^0-9X]/gi, "").toUpperCase()])
       .filter((value) => Array.isArray(value) && value.length === 2);
     if (!hints.length) return null;
-    const [key, offset] = hints[0];
-    await loadShard(key);
-    return state.shards.get(key)?.r?.[offset] || null;
+    await ensureShards(hints.map(([key]) => key));
+    return uniqueRecord(hints.map(([key, offset]) => state.shards.get(key)?.r?.[offset] || null));
   }
 
   async function indexedIssnRecord() {
@@ -882,11 +1113,69 @@
       matchRecord(title, { allowCompletion: false })
     ));
   }
-  function recordInShard(key, normalized, abbreviated) {
-    const shard = state.shards.get(key);
+  const normalizedShardCache = new WeakMap();
+
+  function normalizedAliasVariants(value) {
+    const normalized = venueKey(value);
+    return [...new Set([normalized, normalized.replace(/([\p{L}\p{N}]) s\b/gu, "$1s")].filter(Boolean))];
+  }
+
+  function normalizedShard(shard) {
     if (!shard) return null;
+    if (normalizedShardCache.has(shard)) return normalizedShardCache.get(shard);
+    const aliases = new Map(), abbreviations = new Map();
+    const blockedAliases = new Set(), blockedAbbreviations = new Set();
+    const add = (owners, key, index) => {
+      if (!key) return;
+      if (!owners.has(key)) owners.set(key, new Set());
+      owners.get(key).add(index);
+    };
+    for (const [stored, index] of Object.entries(shard.a || {})) {
+      for (const key of normalizedAliasVariants(stored)) add(aliases, key, index);
+    }
+    // Raw canonical titles preserve apostrophes that the build-time index
+    // separates. Alias variants above cover the same equivalence for aliases.
+    shard.r.forEach((record, index) => add(aliases, venueKey(record[0]), index));
+    for (const stored of shard.x || []) {
+      for (const key of normalizedAliasVariants(stored)) blockedAliases.add(key);
+    }
+    for (const [stored, index] of Object.entries(shard.b || {})) {
+      for (const key of normalizedAliasVariants(stored)) add(abbreviations, key, index);
+    }
+    for (const [key, owners] of aliases) {
+      if (owners.size > 1) blockedAliases.add(key);
+      for (const index of owners) add(abbreviations, abbreviationKey(key), index);
+    }
+    for (const stored of shard.y || []) {
+      for (const key of normalizedAliasVariants(stored)) blockedAbbreviations.add(key);
+    }
+    for (const key of blockedAliases) blockedAbbreviations.add(abbreviationKey(key));
+    const a = Object.create(null), b = Object.create(null);
+    for (const [key, owners] of aliases) {
+      if (owners.size === 1 && !blockedAliases.has(key)) a[key] = [...owners][0];
+    }
+    for (const [key, owners] of abbreviations) {
+      if (owners.size > 1) blockedAbbreviations.add(key);
+      if (owners.size === 1 && !blockedAbbreviations.has(key)) b[key] = [...owners][0];
+    }
+    const streams = new Map();
+    for (const record of shard.r) {
+      const stream = record[15]?.match(/\/db\/conf\/([^/]+)\//)?.[1]?.toLowerCase();
+      if (!stream || !isCcfConference(record)) continue;
+      if (!streams.has(stream)) streams.set(stream, []);
+      streams.get(stream).push(record);
+    }
+    const result = { r: shard.r, a, b, x: blockedAliases, y: blockedAbbreviations, streams };
+    normalizedShardCache.set(shard, result);
+    return result;
+  }
+
+  function recordInShard(key, normalized, abbreviated) {
+    const shard = normalizedShard(state.shards.get(key));
+    if (!shard) return null;
+    if (shard.x.has(normalized)) return null;
     if (Object.prototype.hasOwnProperty.call(shard.a, normalized)) return shard.r[shard.a[normalized]] || null;
-    if (abbreviated && Object.prototype.hasOwnProperty.call(shard.b, abbreviated)) {
+    if (abbreviated && !shard.y.has(abbreviated) && Object.prototype.hasOwnProperty.call(shard.b, abbreviated)) {
       return shard.r[shard.b[abbreviated]] || null;
     }
     return null;
@@ -895,7 +1184,7 @@
   function exactRecord(text) {
     const normalized = venueKey(text);
     if (!normalized) return null;
-    return recordInShard(shardKey(normalized), normalized, abbreviationKey(normalized));
+    return uniqueRecord(primaryShardsForText(text).map((key) => recordInShard(key, normalized, abbreviationKey(normalized))));
   }
 
   function recordCompleteness(record) {
@@ -919,18 +1208,18 @@
     const normalized = venueKey(text);
     const candidateTokens = normalized.split(" ").filter(Boolean);
     if (candidateTokens.length < 4 || normalized.length < 20) return null;
-    const shard = state.shards.get(shardKey(normalized));
-    if (!shard) return null;
-    const matches = new Set();
-    for (const [stored, index] of Object.entries(shard.a)) {
-      if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) matches.add(index);
-      if (matches.size > 1) return false;
+    const matches = [];
+    for (const key of primaryShardsForText(text)) {
+      const shard = normalizedShard(state.shards.get(key));
+      if (!shard) continue;
+      for (const [stored, index] of Object.entries(shard.a)) {
+        if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) matches.push(shard.r[index]);
+      }
+      for (const stored of shard.x) {
+        if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) return false;
+      }
     }
-    for (const stored of shard.x || []) {
-      if ((includeExact && stored === normalized) || stored.startsWith(normalized + " ")) return false;
-    }
-
-    return matches.size === 1 ? shard.r[[...matches][0]] || null : null;
+    return matches.length ? uniqueRecord(matches) || false : null;
   }
 
   function fuzzyAbbreviationRecord(text) {
@@ -938,26 +1227,27 @@
     const candidate = abbreviationKey(normalized);
     const candidateTokens = candidate.split(" ").filter(Boolean);
     if (candidateTokens.length < 2) return null;
-    const shard = state.shards.get(shardKey(normalized));
-    if (!shard) return null;
-    for (const stored of shard.y || []) {
-      const storedTokens = stored.split(" ");
-      if (storedTokens.length !== candidateTokens.length) continue;
-      if (candidateTokens.every((token, position) =>
-        storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
-      )) return null;
+    const matches = [];
+    for (const key of primaryShardsForText(text)) {
+      const shard = normalizedShard(state.shards.get(key));
+      if (!shard) continue;
+      for (const stored of shard.y) {
+        const storedTokens = stored.split(" ");
+        if (storedTokens.length !== candidateTokens.length) continue;
+        if (candidateTokens.every((token, position) =>
+          storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
+        )) return null;
+      }
+      for (const [stored, index] of Object.entries(shard.b)) {
+        const storedTokens = stored.split(" ");
+        if (storedTokens.length !== candidateTokens.length) continue;
+        if (!candidateTokens.every((token, position) =>
+          storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
+        )) continue;
+        matches.push(shard.r[index]);
+      }
     }
-    const matches = new Set();
-    for (const [stored, index] of Object.entries(shard.b)) {
-      const storedTokens = stored.split(" ");
-      if (storedTokens.length !== candidateTokens.length) continue;
-      if (!candidateTokens.every((token, position) =>
-        storedTokens[position].startsWith(token) || token.startsWith(storedTokens[position])
-      )) continue;
-      matches.add(index);
-      if (matches.size > 1) return null;
-    }
-    return matches.size === 1 ? shard.r[[...matches][0]] || null : null;
+    return uniqueRecord(matches);
   }
   function longEmbeddedRecord(text) {
     const normalized = venueKey(text);
@@ -966,8 +1256,8 @@
       const matches = [];
       for (let start = 0; start <= words.length - size; start += 1) {
         const phrase = words.slice(start, start + size).join(" ");
-        const shard = state.shards.get(shardKey(phrase));
-        if (!shard || !Object.prototype.hasOwnProperty.call(shard.a, phrase)) continue;
+        const shard = normalizedShard(state.shards.get(shardKey(phrase)));
+        if (!shard || shard.x.has(phrase) || !Object.prototype.hasOwnProperty.call(shard.a, phrase)) continue;
         matches.push(shard.r[shard.a[phrase]] || null);
       }
       if (matches.length) return uniqueRecord(matches);
@@ -977,32 +1267,61 @@
 
   function acronymRecord(text) {
     const raw = String(text || "").trim();
-    const simple = raw.match(/^([A-Z][A-Z0-9-]{2,11})(?:\s+(?:19|20)\d{2})?$/);
-    const contextual = raw.match(/(?:accepted|published|appearing|presented|forthcoming)\s+(?:at|in|to)?\s*([A-Z][A-Z0-9-]{2,11})\b/i);
+    const simple = raw.match(/^([A-Z][A-Za-z0-9-]{2,11})(?:\s+(?:19|20)\d{2})?$/);
+    const contextual = raw.match(/\b(?:accepted|published|appearing|presented|forthcoming)\s+(?:at|in|to)\s+([A-Za-z][A-Za-z0-9-]{2,11})\b/i);
     const acronym = simple?.[1] || contextual?.[1] || "";
-    return acronym ? exactRecord(acronym) : null;
+    // Case-insensitive context words must not turn ordinary words such as
+    // "Analysis" into an acronym for a journal. Mixed-case NeurIPS remains valid.
+    if ((acronym.match(/[A-Z]/g) || []).length < 2) return null;
+    const record = exactRecord(acronym);
+    return record && (!contextual || isCcfConference(record)) && publicationScopeMatches(raw, record) ? record : null;
+  }
+
+  function isCcfConference(record) {
+    return Boolean(record?.[1] && /会议|conference/i.test(record[2] || "") && /\/db\/conf\/[^/]+\//.test(record[15] || ""));
+  }
+
+  function publicationScopeMatches(value, record) {
+    const scopeWords = /\b(workshops?|findings|supplements?|companion|tutorials?)\b/gi;
+    const scopes = String(value || "").match(scopeWords) || [];
+    const title = venueKey(record?.[0]);
+    return scopes.every((scope) => new RegExp("\\b" + scope.toLowerCase().replace(/s$/, "") + "s?\\b").test(title));
+  }
+
+  function venueTruncation(value) {
+    const raw = String(value || "").normalize("NFKC").trim();
+    const markers = [...raw.matchAll(/\.{3,}|\u2026+/g)];
+    if (!markers.length) return "";
+    return markers.length === 1 && markers[0].index > 0 && markers[0].index + markers[0][0].length === raw.length ? "suffix" : "incomplete";
   }
 
   function matchRecord(text, { allowEmbedded = false, allowCompletion = true } = {}) {
     const normalized = venueKey(text);
     if (!normalized) return null;
-    const shard = state.shards.get(shardKey(normalized));
-    if (shard?.x?.includes(normalized)) return null;
-    const truncated = /(?:\.\.\.|\u2026)+\s*$/.test(String(text || ""));
+    for (const key of primaryShardsForText(text)) {
+      if (normalizedShard(state.shards.get(key))?.x.has(normalized)) return null;
+    }
+    const truncation = venueTruncation(text);
+    if (truncation === "incomplete") return null;
+    const truncated = truncation === "suffix";
+    const scoped = (record) => record && publicationScopeMatches(text, record) ? record : null;
     if (!truncated) {
       // Scholar commonly spells canonical titles with a leading article
       // (e.g. "The Lancet"), while the catalogue stores "Lancet".
-      const exact = exactRecord(normalized) || (normalized.startsWith("the ") ? exactRecord(normalized.slice(4)) : null);
-      if (exact) return exact;
+      const exact = exactRecord(text) || (normalized.startsWith("the ") ? exactRecord(String(text).replace(/^the\s+/i, "")) : null);
+      if (exact) return scoped(exact);
     }
     if (allowCompletion) {
-      const prefixed = prefixRecord(normalized, { includeExact: truncated });
+      const prefixed = prefixRecord(text, { includeExact: truncated });
       if (prefixed === false) return null;
-      if (prefixed) return prefixed;
-      const abbreviated = fuzzyAbbreviationRecord(normalized);
-      if (abbreviated) return abbreviated;
+      if (prefixed) return scoped(prefixed);
+      // Ellipses represent missing evidence, never an abbreviation. A short
+      // truncated title cannot be restored by fuzzy or embedded matching.
+      if (truncated) return null;
+      const abbreviated = fuzzyAbbreviationRecord(text);
+      if (abbreviated) return scoped(abbreviated);
     }
-    return allowEmbedded ? longEmbeddedRecord(normalized) || acronymRecord(text) : null;
+    return allowEmbedded && !truncated ? scoped(longEmbeddedRecord(text) || acronymRecord(text)) : null;
   }
   function semanticScholarRecord(texts) {
     return uniqueRecord(texts.map((text) => matchRecord(text)));
@@ -1038,22 +1357,75 @@
     return normalized === "international journal" || normalized === "journal";
   }
 
-  function scholarSourceRecord(value) {
+  function publicationSourceRecord(value) {
     if (isUnsafeScholarVenue(value)) return null;
+    if (venueTruncation(value) === "incomplete") return null;
+    const candidates = publicationSourceCandidates(value);
+    const context = /^(?:accepted|published|presented|appearing|forthcoming)\s+(?:at|in|to|by)\s+/i.test(String(value || "").trim());
+    const journalContext = /^published\s+in\s+/i.test(String(value || "").trim());
+    const conferenceContext = /\b(?:proceedings|proc|conference|symposium|workshops?|findings|supplements?|companion)\b/i.test(String(value || ""));
+    const sourceRecord = scholarSourceBaseRecord(value) || uniqueRecord(candidates
+      .map((text) => ({ text, record: scholarSourceBaseRecord(text) }))
+      .filter(({ text, record }) => record && publicationScopeMatches(value, record) && (
+        (record[25] === "Book-Series" && /^(?:advances in|proceedings|proc\.?)\s+/i.test(text)) ||
+        ((!conferenceContext || (/^(?:proceedings|proc\.?)\s+/i.test(text) && matchRecord(text, { allowCompletion: false }))) && !isCcfConference(record) && (
+          !context || (journalContext && venueKey(text).split(" ").length >= 2 && matchRecord(text, { allowCompletion: false }))
+        ))
+      )).map(({ record }) => record));
+    const conferenceMatches = candidates.map((text) => {
+      // "Advances in ..." is a series-to-conference relation, not an alias
+      // for arbitrary journal titles or free-form source strings.
+      if (/^conference on /i.test(text) && candidates.some((candidate) => /^advances in /i.test(candidate)) && sourceRecord?.[25] !== "Book-Series") return null;
+      const record = scholarSourceBaseRecord(text);
+      return isCcfConference(record) && publicationScopeMatches(value, record) ? record : null;
+    });
+    // Historical conference acronyms remain in their stable DBLP stream ID.
+    // Resolve those IDs from the catalog instead of a per-conference table.
+    for (const candidate of candidates) {
+      const acronym = candidate.match(/^([A-Z][A-Z0-9-]{2,11})$/)?.[1];
+      if (!acronym) continue;
+      for (const shard of state.shards.values()) {
+        conferenceMatches.push(...(normalizedShard(shard).streams.get(acronym.toLowerCase()) || []).filter((record) => publicationScopeMatches(value, record)));
+      }
+    }
+    const conference = uniqueRecord(conferenceMatches);
+    if (!conference) return sourceRecord;
+    if (!sourceRecord || sourceRecord[1] || sourceRecord[25] !== "Book-Series") return conference;
+    // Keep the series' ISSNs and index labels while adding the conference's
+    // CCF metadata; the underlying catalog entities remain separate.
+    const combined = sourceRecord.slice();
+    for (const index of [1, 2, 3, 14, 15]) combined[index] = conference[index];
+    return combined;
+  }
+
+  function scholarSourceRecord(value) {
+    return publicationSourceRecord(value);
+  }
+
+  function scholarSourceBaseRecord(value) {
     const normalized = venueKey(value);
     const words = normalized.split(" ").filter(Boolean);
     // Short journal titles are common (Appetite, Insects, Animals, Science).
     // Permit them only as an exact catalogue title, never via prefix/fuzzy
     // completion, so the fix does not reintroduce the generic-title problem.
     if (words.length <= 2) {
-      return exactRecord(normalized) || (normalized.startsWith("the ") ? exactRecord(normalized.slice(4)) : null);
+      if (venueTruncation(value)) return null;
+      const exact = exactRecord(value) || (normalized.startsWith("the ") ? exactRecord(String(value).replace(/^the\s+/i, "")) : null);
+      // Two compact journal words can be a genuine bibliographic abbreviation
+      // (Ann Med, Phys Rev). An author initial and surname cannot supply this
+      // evidence, and longer short titles remain exact-only.
+      const abbreviated = words.length === 2 && words.every((word) => word.length >= 3 && word.length <= 4)
+        ? fuzzyAbbreviationRecord(value)
+        : null;
+      const record = exact || abbreviated;
+      return record && publicationScopeMatches(value, record) ? record : null;
     }
     return matchRecord(value);
   }
 
   function scholarFallbackRecord(texts) {
     const safe = (texts || []).filter((text) => !isUnsafeScholarVenue(text));
-    return uniqueRecord(safe.map((text) => matchRecord(text)));
+    return uniqueRecord(safe.map(publicationSourceRecord));
   }
   function primaryShardForText(text) {
     const normalized = venueKey(text);
@@ -1063,10 +1435,12 @@
   function primaryShardsForText(text) {
     const normalized = venueKey(text);
     if (!normalized) return [];
-    const keys = [shardKey(normalized)];
+    const catalogKey = catalogVenueKey(text);
+    const keys = [shardKey(normalized), shardKey(catalogKey)];
     // "The Lancet" and equivalent leading-article titles may normalize to a
     // record in another shard. Load both deterministically before exact match.
     if (normalized.startsWith("the ")) keys.push(shardKey(normalized.slice(4)));
+    if (catalogKey.startsWith("the ")) keys.push(shardKey(catalogKey.slice(4)));
     return [...new Set(keys)];
   }
 
@@ -1310,11 +1684,27 @@
     ], "Chartered Association of Business Schools 发布的 Academic Journal Guide（常称 ABS）评级；4* 为最高等级。", ajg.rating));
   }
 
-  function renderBadges(record, business = null, ajg = null, verifiedVenueTitle = "") {
+  function renderCustomBadges(row, matches) {
+    if (!state.settings.showCustomIndexes) return;
+    for (const match of matches) {
+      const element = badge("custom", tr("自定义") + "：" + match.name + " " + match.level,
+        "用户上传的自定义索引", [{ label: "索引", value: match.name }, { label: "等级", value: match.level }],
+        "由用户上传的期刊/会议目录提供，独立于插件内置的官方索引。", match.level);
+      element.dataset.customIndexId = match.id;
+      row.appendChild(element);
+    }
+  }
+
+  function renderBadges(record, business = null, ajg = null, verifiedVenueTitle = "", customMatches = [], officialAvailable = true) {
     const row = document.createElement("span");
     row.className = "rank-assistant-row";
     row.dataset.paperRank = "1";
     const s = state.settings;
+
+    if (!officialAvailable) {
+      renderCustomBadges(row, customMatches);
+      return row.children.length ? row : null;
+    }
 
     if (s.showWarning && record?.[32]) {
       row.appendChild(badge(
@@ -1354,6 +1744,7 @@
     }
 
     renderBusinessBadges(row, business, ajg);
+    renderCustomBadges(row, customMatches);
     if (!record) return row.children.length ? row : null;
 
     if (s.showCas && record[4]) {
@@ -1560,7 +1951,8 @@
     else venue.insertAdjacentElement("afterend", details);
   }
 
-  function filterValuesForRecord(index, record) {
+  function filterValuesForRecord(index, record, customMatches = []) {
+    if (index.startsWith("custom:")) return customMatches.filter((match) => "custom:" + match.id === index).map((match) => match.level);
     if (index === "ccf") return [record?.[1] || "None"];
     if (index === "jcr") return record?.[8] ? [record[8]] : [];
     if (index === "cas") return [record?.[4], record?.[5] ? "Top" : ""].filter(Boolean);
@@ -1580,14 +1972,21 @@
     return [];
   }
 
-  function recordPassesFilters(record) {
+  function recordPassesFilters(record, customMatches = [], officialAvailable = true) {
     if (state.settings.hideWarnedJournals && record?.[32]) return false;
     const filters = state.settings.resultFilters || {};
     const indexes = Array.isArray(filters.indexes) ? filters.indexes : [];
     for (const index of indexes) {
-      const selected = Array.isArray(filters.values?.[index]) ? filters.values[index] : [];
+      if (typeof index !== "string") continue;
+      let selected = Array.isArray(filters.values?.[index]) ? filters.values[index] : [];
+      if (index.startsWith("custom:")) {
+        const validLevels = customFilterLevels().get(index);
+        if (!validLevels) continue;
+        selected = selected.filter((level) => validLevels.has(level));
+      }
       if (!selected.length) continue;
-      const actual = filterValuesForRecord(index, record);
+      if (!officialAvailable && !index.startsWith("custom:")) return false;
+      const actual = filterValuesForRecord(index, record, customMatches);
       if (!selected.some((value) => actual.includes(value))) return false;
     }
     return true;
@@ -1600,23 +1999,67 @@
       delete container.dataset.paperRankProcessed;
       delete container.dataset.paperRankLoading;
       delete container.dataset.paperRankMatched;
+      delete container.dataset.paperRankCustomMembership;
     }
     if (!state.settings.enabled) return;
-    idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
+    idle().then(scan).then(() => { if (!state.scanError) setStatus("ready", state.lastScanDetail); }).catch(reportScanError);
   }
 
-  function renderContainer(container, record, texts = [], verifiedVenueTitle = "") {
+  function fingerprintNativeText(node) {
+    if (!node) return "";
+    const copy = node.cloneNode(true);
+    copy.querySelectorAll?.(".rank-assistant-row, .rank-assistant-venue-detail").forEach((child) => child.remove());
+    return String(copy.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
+  function resultVenueFingerprint(container) {
+    const title = titleNode(container);
+    const venue = venueNode(container);
+    const sourceAttributes = ["data-full-text", "data-venue", "data-journal", "data-source", "title", "href"]
+      .map((name) => venue?.getAttribute?.(name) || "");
+    return JSON.stringify([
+      location.pathname + location.search,
+      fingerprintNativeText(title),
+      title?.getAttribute?.("href") || title?.querySelector?.("a[href]")?.getAttribute("href") || "",
+      candidateTexts(container),
+      sourceAttributes,
+      siteKind() === "dblp" ? dblpVenueKey(container) : "",
+      siteKind() === "pubmed" ? pubmedId(container) : "",
+      siteKind() === "researchgate" ? researchGateDoi(container) : ""
+    ]);
+  }
+
+  function reportScanError(error) {
+    state.scanError = String(error?.message || error);
+    setStatus("error", String(error?.message || error));
+    console.error("[期刊会议等级与分区助手]", error);
+  }
+
+  function renderContainer(container, record, texts = [], verifiedVenueTitle = "", expectedFingerprint, officialAvailable = true) {
+    if (!container.isConnected) return;
+    if (expectedFingerprint !== undefined && expectedFingerprint !== resultVenueFingerprint(container)) {
+      delete container.dataset.paperRankLoading;
+      delete container.dataset.paperRankProcessed;
+      rescanRequested = true;
+      return;
+    }
     if (isResearchGatePublicationPage() || isPublisherDocumentPage()) {
       document.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
     }
-    container.dataset.paperRankProcessed = "1";
+    container.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+    if (officialAvailable) container.dataset.paperRankProcessed = "1";
+    else delete container.dataset.paperRankProcessed;
+    container.dataset.paperRankVenueFingerprint = resultVenueFingerprint(container);
     delete container.dataset.paperRankLoading;
+    const customMatches = customMatchesForContainer(container, record, verifiedVenueTitle);
+    container.dataset.paperRankCustomMembership = JSON.stringify(customMatches.map(({ id, level }) => ({ id, level })));
     if (siteKind() === "researchgate" && !isResearchGatePublicationPage() && !record && !researchGateVenueNode(container) && !verifiedVenueTitle) {
       delete container.dataset.paperRankMatched;
+      delete container.dataset.paperRankCustomMembership;
       return;
     }
-    const visible = recordPassesFilters(record);
-    container.classList.toggle("rank-assistant-filter-hidden", !visible);
+    const visible = recordPassesFilters(record, customMatches, officialAvailable);
+    if (container.classList.contains("rank-assistant-filter-hidden") === visible) container.classList.toggle("rank-assistant-filter-hidden", !visible);
     if (!visible) return;
     const canonicalTexts = record ? [record[0]] : [];
     // UTD/FT matching is exact, so it may still be shown for a clean venue
@@ -1626,32 +2069,33 @@
     // ABS/AJG is deliberately tied to a catalog-confirmed journal title,
     // never to arbitrary paper-title text or an unverified short label.
     const ajg = record ? globalThis.RankAssistantAjg2024?.match(record[0]) || null : null;
-    const row = renderBadges(record, business, ajg, verifiedVenueTitle);
+    const row = renderBadges(record, business, ajg, verifiedVenueTitle, customMatches, officialAvailable);
     if (row) {
       attachTitleRow(container, row, [record?.[0], business?.name, verifiedVenueTitle]);
-      container.dataset.paperRankMatched = "1";
+      if (officialAvailable && (record || business || verifiedVenueTitle)) container.dataset.paperRankMatched = "1";
+      else delete container.dataset.paperRankMatched;
     } else {
       delete container.dataset.paperRankMatched;
     }
-    if (record) attachVenueDetails(container, renderVenueDetails(record));
+    if (officialAvailable && record) attachVenueDetails(container, renderVenueDetails(record));
   }
 
-  async function resolveAndRenderResearchGateItems(items) {
+  async function resolveAndRenderResearchGateItems(items, paint = true) {
     if (!items.length) return;
-    await ensureShards(items.flatMap((item) => item.texts.flatMap(primaryShardsForText)));
+    await ensureShards(items.flatMap((item) => item.texts.flatMap(publicationSourceCandidates).flatMap(primaryShardsForText)));
     const unresolved = [];
     for (const item of items) {
       item.record = await indexedRecordForIssns(item.externalIssns) ||
-        uniqueRecord(item.texts.map((text) => matchRecord(text, { allowEmbedded: true, allowCompletion: false })));
+        uniqueRecord(item.texts.map(publicationSourceRecord));
       if (!item.record) unresolved.push(item);
     }
     if (unresolved.length) {
       await ensureShards(unresolved.flatMap((item) => item.texts.flatMap(secondaryShardsForText)));
       for (const item of unresolved) {
-        item.record = uniqueRecord(item.texts.map((text) => matchRecord(text, { allowEmbedded: true, allowCompletion: false })));
+        item.record = uniqueRecord(item.texts.map(publicationSourceRecord));
       }
     }
-    for (const item of items) renderContainer(item.container, item.record, item.texts, item.verifiedVenueTitle);
+    if (paint) for (const item of items) renderContainer(item.container, item.record, item.texts, item.verifiedVenueTitle, item.venueFingerprint);
   }
 
   function unifyDblpVenueLineages(items) {
@@ -1681,7 +2125,21 @@
     }
   }
 
-  async function scan() {
+  function scan() {
+    if (scanInFlight) {
+      rescanRequested = true;
+      return scanInFlight;
+    }
+    scanInFlight = (async () => {
+      do {
+        rescanRequested = false;
+        await scanPendingResults();
+      } while (rescanRequested);
+    })().finally(() => { scanInFlight = null; });
+    return scanInFlight;
+  }
+
+  async function scanPendingResults() {
     if (isAccessChallengePage()) {
       suppressAccessChallengeOutput();
       return;
@@ -1690,8 +2148,8 @@
       (container) => container.dataset.paperRankProcessed !== "1" && container.dataset.paperRankLoading !== "1"
     );
     if (!containers.length) return;
+    state.scanError = "";
     const site = siteKind();
-    const isSemanticScholar = site === "semantic-scholar";
     const allowEmbedded = site === "arxiv" || site === "researchgate" || (site === "publisher" && isJournalLandingPage());
     const items = containers.map((container) => {
       container.dataset.paperRankLoading = "1";
@@ -1699,7 +2157,7 @@
       const texts = candidateTexts(container);
       const explicitTexts = site === "scholar" ? scholarExplicitVenueCandidates(container) : [];
       const doi = site === "researchgate" && !researchGateVenueNode(container) ? researchGateDoi(container) : "";
-      return { container, texts, explicitTexts, sourceText, venueFingerprint: site === "scholar" ? scholarVenueFingerprint(container) : "", text: texts[0] || "", pmid: site === "pubmed" ? pubmedId(container) : "", doi, paperTitle: site === "researchgate" && !isResearchGatePublicationPage() ? researchGatePaperTitle(container) : "", pubmedIssns: [], externalIssns: [], verifiedVenueTitle: "", record: null };
+      return { container, texts, explicitTexts, sourceText, venueFingerprint: resultVenueFingerprint(container), text: texts[0] || "", pmid: site === "pubmed" ? pubmedId(container) : "", doi, paperTitle: site === "researchgate" && !isResearchGatePublicationPage() ? researchGatePaperTitle(container) : "", pubmedIssns: [], externalIssns: [], verifiedVenueTitle: "", record: null };
     });
 
     try {
@@ -1738,13 +2196,17 @@
           if (title && /^(?:journal-article|proceedings-article)$/i.test(String(venue?.type || ""))) item.verifiedVenueTitle = title;
         };
 
-        const nativeVenueItems = items.filter((item) => researchGateVenueNode(item.container));
-        for (const item of nativeVenueItems) pending.delete(item);
-        await resolveAndRenderResearchGateItems(nativeVenueItems);
+        const nativeVenueItems = items.filter((item) => candidateText(item.container));
+        await resolveAndRenderResearchGateItems(nativeVenueItems, false);
+        for (const item of nativeVenueItems) {
+          if (!item.record) continue;
+          pending.delete(item);
+          renderContainer(item.container, item.record, item.texts, item.verifiedVenueTitle, item.venueFingerprint);
+        }
 
         // Resolve and paint small DOI groups independently. One slow or bad
         // publication must not hold back every badge on the first screen.
-        const doiItems = items.filter((item) => item.doi).slice(0, 20);
+        const doiItems = [...pending].filter((item) => item.doi).slice(0, 20);
         for (let start = 0; start < doiItems.length; start += 4) {
           const group = doiItems.slice(start, start + 4);
           const response = await sendRuntimeMessage({ type: "rank-assistant-doi-venues", dois: group.map((item) => item.doi) });
@@ -1779,7 +2241,7 @@
         // Only now finalize cards for which neither source-recovery path had
         // trustworthy evidence. These remain blank instead of receiving a
         // fabricated journal rank.
-        for (const item of pending) renderContainer(item.container, null, item.texts, "");
+        for (const item of pending) renderContainer(item.container, null, item.texts, "", item.venueFingerprint);
         state.lastScanDetail = state.shards.size + " content data shards";
         return;
       }
@@ -1791,11 +2253,15 @@
         if (response?.ok && Array.isArray(response.records) && response.records.length === items.length) {
           response.records.forEach((record, index) => { items[index].record = record || null; });
           state.lastScanDetail = (Number(response.shardCount) || 0) + " background data shards";
-          for (const item of items) renderContainer(item.container, item.record, item.texts);
+          for (const item of items) renderContainer(item.container, item.record, item.texts, "", item.venueFingerprint);
           return;
         }
+        throw new Error(response?.error || "DBLP venue catalog lookup failed");
       }
-      await ensureShards(items.flatMap((item) => item.texts.flatMap(primaryShardsForText)));
+      await ensureShards(items.flatMap((item) => [
+        ...item.texts.flatMap(publicationSourceCandidates),
+        ...(site === "scholar" ? scholarSourceCandidates(item.sourceText) : [])
+      ].flatMap(primaryShardsForText)));
       // Publisher journal homes, especially Wiley's logo-led templates, often
       // expose ISSNs long before any machine-readable journal title.  Resolve
       // those ISSNs through the packaged index, so we load only one shard
@@ -1820,14 +2286,17 @@
           : null;
         let localFallback = null;
         if (site === "scholar") localFallback = scholarFallbackRecord(item.texts);
-        else if (isSemanticScholar) localFallback = semanticScholarRecord(item.texts);
-        else localFallback = uniqueRecord(item.texts.map((text) => matchRecord(text, { allowCompletion: !allowEmbedded })));
-        const publisherRecord = site === "publisher" && isJournalLandingPage()
-          // A current, exact masthead/title match is stronger than an ISSN
-          // mentioned only in historical-journal prose on the same page.
-          ? (publisherTitleRecord || indexedPublisherRecord)
-          : (indexedPublisherRecord || publisherTitleRecord);
-        item.record = publisherRecord || explicitScholarRecord || sourceRecord ||
+        else localFallback = uniqueRecord(item.texts.map(publicationSourceRecord));
+        // Current, explicit source metadata also wins on article pages. An
+        // inconsistent or historical ISSN must not replace a known source.
+        const publisherRecord = site === "publisher"
+          ? (publisherTitleRecord || localFallback || indexedPublisherRecord)
+          : null;
+        // A confirmed native conference also carries the proceedings series'
+        // index labels. A bare series match must not discard its CCF metadata.
+        const scholarRecord = sourceRecord?.[1] && explicitScholarRecord?.[25] === "Book-Series"
+          ? sourceRecord : explicitScholarRecord || sourceRecord;
+        item.record = publisherRecord || scholarRecord ||
           (site === "pubmed" ? await indexedRecordForIssns(item.pubmedIssns) : null) ||
           (site === "researchgate" ? await indexedRecordForIssns(item.externalIssns) : null) || localFallback;
         if (!item.record) unresolved.push(item);
@@ -1841,26 +2310,37 @@
       unifyDblpVenueLineages(items);
       state.lastScanDetail = state.shards.size + " content data shards";
       for (const item of items) {
-        renderContainer(item.container, item.record, item.texts, item.verifiedVenueTitle);
-        if (site === "scholar") item.container.dataset.paperRankVenueFingerprint = item.venueFingerprint;
+        renderContainer(item.container, item.record, item.texts, item.verifiedVenueTitle, item.venueFingerprint);
       }
     } catch (error) {
-      for (const item of items) delete item.container.dataset.paperRankLoading;
+      state.scanError = String(error?.message || error);
+      for (const item of items) renderContainer(item.container, null, item.texts, item.verifiedVenueTitle, item.venueFingerprint, false);
       throw error;
     }
   }
   function mutationContainsResults(records) {
     const selector = resultSelector();
     if (!selector) return false;
+    const ownOutput = ".rank-assistant-row, .rank-assistant-venue-detail, #rank-assistant-shared-tooltip";
+    const containers = [...resultContainers()];
+    const touchesResult = (node) => {
+      const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+      if (!element || element.closest?.(ownOutput)) return false;
+      return Boolean(element.matches?.(selector) || element.closest?.(selector) || element.querySelector?.(selector) ||
+        containers.some((container) => container === element || container.contains(element)));
+    };
     for (const record of records) {
-      if (record.type === "characterData") {
-        const parent = record.target?.parentElement;
-        if (parent && !parent.closest?.(".rank-assistant-row, .rank-assistant-venue-detail, #rank-assistant-shared-tooltip") && parent.closest?.(selector)) return true;
+      if (record.type === "attributes" && /^(?:data-paper-rank|data-rank-assistant)/.test(record.attributeName || "")) continue;
+      if (record.type === "attributes" && record.target?.matches?.("meta[name], meta[property]")) return true;
+      if (record.type === "characterData" || record.type === "attributes") {
+        if (touchesResult(record.target)) return true;
+        continue;
       }
-      for (const node of record.addedNodes) {
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
-        if (node.closest?.(".rank-assistant-row, .rank-assistant-venue-detail, #rank-assistant-shared-tooltip")) continue;
-        if (node.matches?.(selector) || node.closest?.(selector) || node.querySelector?.(selector)) return true;
+      const changedNodes = [...record.addedNodes, ...record.removedNodes];
+      for (const node of changedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node.matches?.(ownOutput) || node.closest?.(ownOutput))) continue;
+        if (node.nodeType === Node.ELEMENT_NODE && node.matches?.("meta[name], meta[property]")) return true;
+        if (touchesResult(node) || (node.nodeType === Node.TEXT_NODE && touchesResult(record.target))) return true;
       }
     }
     return false;
@@ -1869,54 +2349,45 @@
   function watchDynamicResults() {
     let timer;
     const observer = new MutationObserver((records) => {
+      if (records.every((record) => record.type === "attributes" && /^(?:data-paper-rank|data-rank-assistant)/.test(record.attributeName || ""))) return;
       if (isAccessChallengePage()) {
         clearTimeout(timer);
         suppressAccessChallengeOutput();
         return;
       }
       const site = siteKind();
-      const dynamicVenueSite = site === "researchgate" || site === "publisher" || site === "scholar" || site === "pubmed";
-      // Ignore mutations made by our own badges, but react when Scholar or a
-      // companion extension fills in a venue after the first page render.
       if (!mutationContainsResults(records)) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        if (dynamicVenueSite) {
-          for (const container of resultContainers()) {
-            // EasyScholar's full journal label often arrives after this
-            // extension's initial pass. Scholar cards must be reconsidered
-            // even if a provisional badge was already rendered.
-            if (site === "scholar") {
-              const nextFingerprint = scholarVenueFingerprint(container);
-              if (nextFingerprint === (container.dataset.paperRankVenueFingerprint || "")) continue;
-            } else if (container.dataset.paperRankMatched === "1") continue;
-            // A rescan replaces its old output rather than appending another
-            // copy of the badges while a companion extension is hydrating.
-            container.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
-            delete container.dataset.paperRankProcessed;
-            delete container.dataset.paperRankLoading;
-            delete container.dataset.paperRankMatched;
-          }
+        for (const container of resultContainers()) {
+          if (resultVenueFingerprint(container) === (container.dataset.paperRankVenueFingerprint || "")) continue;
+          container.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
+          container.classList.remove("rank-assistant-filter-hidden");
+          delete container.dataset.paperRankProcessed;
+          delete container.dataset.paperRankLoading;
+          delete container.dataset.paperRankMatched;
+          delete container.dataset.paperRankCustomMembership;
         }
-        idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
+        idle().then(scan).then(() => { if (!state.scanError) setStatus("ready", state.lastScanDetail); }).catch(reportScanError);
       }, site === "scholar" ? 320 : 80);
     });
-    observer.observe(document.documentElement, { childList: true, characterData: true, subtree: true });
+    observer.observe(document.documentElement, { childList: true, characterData: true, attributes: true, subtree: true });
   }
 
   function refreshDelayedScholarVenues() {
     if (siteKind() !== "scholar") return;
     let changed = false;
     for (const container of resultContainers()) {
-      const nextFingerprint = scholarVenueFingerprint(container);
+      const nextFingerprint = resultVenueFingerprint(container);
       if (nextFingerprint === (container.dataset.paperRankVenueFingerprint || "")) continue;
       container.querySelectorAll(".rank-assistant-row, .rank-assistant-venue-detail").forEach((node) => node.remove());
       delete container.dataset.paperRankProcessed;
       delete container.dataset.paperRankLoading;
       delete container.dataset.paperRankMatched;
       changed = true;
+      delete container.dataset.paperRankCustomMembership;
     }
-    if (changed) idle().then(scan).catch((error) => console.error("[期刊会议等级与分区助手]", error));
+    if (changed) idle().then(scan).then(() => { if (!state.scanError) setStatus("ready", state.lastScanDetail); }).catch(reportScanError);
   }
 
   async function initialize() {

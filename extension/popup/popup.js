@@ -6,7 +6,7 @@ const SETTINGS = {
   showIf: true, showWos: true, showTop: true, showCssci: true, showPku: true, showEi: true,
   showUtd24: true, showFt50: true, showAbs: true,
   showXinrui: true, showWarning: true,
-  autoCheckUpdates: true, language: "zh-CN", colorTheme: "light", colorPalette: "vivid"
+  autoCheckUpdates: true, language: "zh-CN", colorTheme: "light", colorPalette: "vivid", showCustomIndexes: true
 };
 const BADGE_SETTING_IDS = Object.freeze([
   "showCcf", "showCas", "showXinrui", "showWarning", "showJcr", "showIf", "showWos",
@@ -193,6 +193,10 @@ for (const id of Object.keys(SETTINGS)) {
 document.getElementById("badgePresets").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-preset]");
   if (button) applyBadgePreset(button.dataset.preset);
+});
+
+document.getElementById("manageCustomIndexes").addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("extension/custom-indexes/manager.html") });
 });
 
 Promise.all([

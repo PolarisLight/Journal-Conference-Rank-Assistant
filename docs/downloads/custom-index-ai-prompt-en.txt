@@ -1,0 +1,17 @@
+Create an importable CSV for Journal & Conference Rank Assistant from the source list I provide.
+
+My goal: [list name, year, and subject or institution scope]
+Source: [attach a PDF/spreadsheet, paste the original list, or give the issuing body's URL]
+Tier rules: [preserve the original tiers; leave blank if unranked; state any requested mapping explicitly]
+
+Requirements:
+1. Use only supplied material you can read and verify. Check the issuer, year, and scope first. If a URL cannot be read, ask me for the file or original text.
+2. Use exactly these four headers in this order: 名称,等级,ISSN,别名. Add no other columns. Each row represents one journal or conference.
+3. 名称 is required and must contain the full venue name. Preserve qualifiers such as Workshop and Findings. Fill 等级 using my rules, or leave it blank if unranked.
+4. ISSN and 别名 are optional. Keep ISSNs as text, such as 1234-567X. Leave uncertain values blank. Separate multiple ISSNs or aliases with semicolons.
+5. Do not invent venues, tiers, ISSNs, or aliases from memory. Merge same-venue duplicates with the same tier. List conflicts involving a shared name, alias, or ISSN with different tiers separately for my confirmation.
+6. Produce comma-delimited UTF-8 CSV, preferably with a BOM for Excel. Enclose every cell in double quotes, escape embedded double quotes by doubling them, and represent empty values as "".
+7. Do not put the index group name in the CSV. I will enter it separately in Index name on the extension's management page.
+8. Prefer a downloadable .csv file. If you can only return text, place CSV in a single code block. Keep sources, the entry count, and unresolved items in a separate note outside the CSV.
+
+Check column counts, missing venue names, duplicates, and tier conflicts before delivering the file.

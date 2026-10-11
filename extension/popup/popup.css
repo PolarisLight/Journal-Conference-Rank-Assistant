@@ -69,6 +69,7 @@ dl div { display: flex; justify-content: space-between; padding: 5px 0; font-siz
 dt { color: #667085; }
 dd { margin: 0; font-weight: 650; }
 .section-title h2 { margin-bottom: 0; }
+.custom-index-card > button { margin-top: 10px; width: 100%; }
 .inline-toggle { color: #475467; font-size: 12px; }
 .actions { display: flex; gap: 8px; margin-top: 12px; }
 button {

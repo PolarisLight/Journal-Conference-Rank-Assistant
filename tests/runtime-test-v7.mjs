@@ -4,7 +4,26 @@ import path from "node:path";
 const { JSDOM } = await import("file:///C:/Users/polaris/Documents/Codex/2026-07-12/ch/work/testdeps/node_modules/jsdom/lib/api.js");
 
 const root = process.argv[2] || process.cwd();
+const parsedCatalog = new Map();
+const activePages = new Set();
+let createdPages = 0;
+let closedPages = 0;
+function catalogShard(key) {
+  if (!parsedCatalog.has(key)) {
+    const filename = path.join(root, "extension/data", "catalog-shard-" + key + ".private.json");
+    const freeze = (value) => {
+      if (value && typeof value === "object" && !Object.isFrozen(value)) {
+        Object.values(value).forEach(freeze);
+        Object.freeze(value);
+      }
+      return value;
+    };
+    parsedCatalog.set(key, freeze(JSON.parse(fs.readFileSync(filename, "utf8"))));
+  }
+  return parsedCatalog.get(key);
+}
 const normalizer = fs.readFileSync(path.join(root, "extension/lib/normalizer.js"), "utf8");
+const customIndexes = fs.readFileSync(path.join(root, "extension/lib/custom-indexes.js"), "utf8");
 const i18n = fs.readFileSync(path.join(root, "extension/lib/i18n.js"), "utf8");
 const businessRankings = fs.readFileSync(path.join(root, "extension/data/business-rankings.js"), "utf8");
 const ajgRankings = fs.readFileSync(path.join(root, "extension/data/ajg-2024.js"), "utf8");
@@ -84,7 +103,14 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   const storageWrites = [];
   const errors = [];
   const runtimeMessages = [];
-  const dom = new JSDOM(html, { url, runScripts: "outside-only", pretendToBeVisual: true });
+  let dom = new JSDOM(html, { url, runScripts: "outside-only", pretendToBeVisual: true });
+  createdPages += 1;
+  if (process.env.PAPER_RANK_TEST_PROGRESS === "1") process.stderr.write(`runtime page ${createdPages}: ${url}\n`);
+  const observers = [];
+  const NativeObserver = dom.window.MutationObserver;
+  dom.window.MutationObserver = class extends NativeObserver {
+    constructor(callback) { super(callback); observers.push(this); }
+  };
   dom.window.__PAPER_RANK_DBLP_TIMEOUT_MS = 350;
   dom.window.chrome = {
     runtime: {
@@ -93,8 +119,7 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
       sendMessage: (message, callback) => {
         runtimeMessages.push(message.type);
         if (message.type === "rank-assistant-get-data-shard") {
-          const file = path.join(root, "extension/data", "catalog-shard-" + message.key + ".private.json");
-          callback({ ok: true, shard: JSON.parse(fs.readFileSync(file, "utf8")), updated: false });
+          callback({ ok: true, shard: catalogShard(message.key), updated: false });
           return;
         }
         if (message.type === "rank-assistant-match-dblp-venues") {
@@ -118,8 +143,7 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
             const normalized = normalize(item.text);
             const key = /^[a-z]/.test(normalized) ? normalized[0] : /^\d/.test(normalized) ? "0" : "other";
             keys.add(key);
-            const file = path.join(root, "extension/data", "catalog-shard-" + key + ".private.json");
-            const shard = JSON.parse(fs.readFileSync(file, "utf8"));
+            const shard = catalogShard(key);
             const linked = shard.r.find((record) => venueKey(record?.[15]) === item.key);
             if (linked) return linked;
             const words = normalized.split(" ");
@@ -226,8 +250,10 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
     }
     if (address.startsWith("moz-extension://")) {
       catalogFetches += 1;
-      const file = path.join(root, "extension/data", address.split("/").at(-1));
-      return { ok: true, status: 200, json: async () => JSON.parse(fs.readFileSync(file, "utf8")) };
+      const basename = address.split("/").at(-1);
+      const shard = basename.match(/^catalog-shard-(\w+)\.private\.json$/);
+      const file = path.join(root, "extension/data", basename);
+      return { ok: true, status: 200, json: async () => shard ? catalogShard(shard[1]) : JSON.parse(fs.readFileSync(file, "utf8")) };
     }
     apiFetches += 1;
     directApiFetches += 1;
@@ -237,6 +263,7 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   dom.window.console.error = (...args) => errors.push(args.map(String).join(" "));
   dom.window.console.warn = (...args) => errors.push(args.map(String).join(" "));
   dom.window.eval(normalizer);
+  dom.window.eval(customIndexes);
   dom.window.eval(i18n);
   dom.window.eval(businessRankings);
   dom.window.eval(ajgRankings);
@@ -244,8 +271,21 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
   dom.window.eval(contentScript);
   dom.window.eval(filterUi);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
-  return {
+  if (process.env.PAPER_RANK_TEST_PROGRESS === "1") process.stderr.write(`runtime page ${createdPages}: ready\n`);
+  const page = {
     dom, apiFetches, directApiFetches, backgroundRecoveryMessages, catalogFetches, errors, storageWrites, runtimeMessages,
+    close() {
+      if (!dom) return;
+      observers.forEach((observer) => observer.disconnect());
+      observers.length = 0;
+      storageListeners.length = 0;
+      dom.window.close();
+      dom = null;
+      page.dom = null;
+      page.changeSettings = null;
+      activePages.delete(page);
+      closedPages += 1;
+    },
     changeSettings(values) {
       const changes = {};
       for (const [key, value] of Object.entries(values)) {
@@ -255,6 +295,8 @@ async function run(url, html, waitMs = 900, settingOverrides = {}, systemDark = 
       for (const listener of storageListeners) listener(changes, "local");
     }
   };
+  activePages.add(page);
+  return page;
 }
 
 const dblpHtml = '<section id="completesearch-publs"><div class="body"><ul class="publ-list"><li class="year">2026</li><li class="entry article"><cite class="data">A. Author: <span class="title" itemprop="name">Known paper.</span><span itemprop="isPartOf"><a id="known-venue" href="/db/journals/access/"><span itemprop="name">IEEE Access</span></a></span> 2026</cite></li><li class="entry inproceedings"><cite class="data">B. Author: <span class="title" itemprop="name">Unknown paper.</span><span itemprop="isPartOf"><a id="unknown-venue" href="/db/conf/unknown/"><span itemprop="name">Unknown Symposium</span></a></span> 2026</cite></li></ul></div></section>';
@@ -441,7 +483,7 @@ assert.ok(issnOnlyLabels.includes("UTD24"), JSON.stringify(issnOnlyLabels));
 assert.ok(issnOnlyLabels.includes("FT50"), JSON.stringify(issnOnlyLabels));
 assert.ok(issnOnlyLabels.includes("ABS 4*"), JSON.stringify(issnOnlyLabels));
 
-const emeraldHistoricalIssnHtml = '<head><title>Aslib Journal of Information Management | Emerald Publishing</title></head><body><header><div id="emerald-current">Aslib Journal of Information Management</div></header><main><p>This journal was previously published as Aslib Proceedings until 2013. Previous ISSN 0001-253X.</p></main></body>';
+const emeraldHistoricalIssnHtml = '<head><title>Aslib Journal of Information Management | Emerald Publishing</title></head><body><header class="journal-header"><div class="journal-title" id="emerald-current">Aslib Journal of Information Management</div></header><main><p>This journal was previously published as Aslib Proceedings until 2013. Previous ISSN 0001-253X.</p></main></body>';
 const emeraldHistoricalIssn = await run("https://www.emerald.com/ajim", emeraldHistoricalIssnHtml, 900);
 const emeraldLabels = [...emeraldHistoricalIssn.dom.window.document.querySelectorAll(".rank-assistant-badge")].map((node) => node.textContent);
 assert.ok(emeraldLabels.includes("ABS 1"), "Current Emerald title must outrank a historical ISSN: " + JSON.stringify(emeraldLabels));
@@ -823,6 +865,14 @@ assert.equal(stressDoc.querySelectorAll(".rank-assistant-row").length, 100);
 assert.equal(stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, 0, "Tooltip DOM is lazy and singleton");
 stressDoc.querySelector(".rank-assistant-badge").click();
 assert.equal(stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, 0);
+const basicSummary = {
+  dblp: { labels: knownLabels, controls: doc.querySelectorAll(".rank-assistant-badge, .rank-assistant-venue-detail").length, tooltips: doc.querySelectorAll("#rank-assistant-shared-tooltip").length },
+  scholar: { labels: scholarLabels, catalogFetches: scholar.catalogFetches },
+  recovered: { apiFetches: recovered.apiFetches, entries: recovered.dom.window.document.querySelectorAll("li.entry").length },
+  stress: { entries: 100, catalogFetches: stress.catalogFetches, tooltips: stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, elapsedMs: stressMs }
+};
+for (const page of [...activePages]) page.close();
+global.gc?.();
 const chromeManifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 const firefoxManifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.firefox.json"), "utf8"));
 const manifestMatches = chromeManifest.content_scripts.flatMap((entry) => entry.matches || []);
@@ -883,6 +933,8 @@ for (const pattern of manifestMatches) {
     assert.deepEqual(unknown, ["CCF None"], pattern + " guessed a generic non-venue phrase");
   }
   manifestMatrix.push(pattern);
+  page.close();
+  global.gc?.();
 }
 
 const publisherPatterns = manifestMatches.filter((pattern) => {
@@ -896,6 +948,8 @@ for (const pattern of publisherPatterns) {
   const page = await run(url, detailHtml, 220);
   const labels = [...page.dom.window.document.querySelectorAll("#matrix-detail .rank-assistant-badge")].map((node) => node.textContent);
   assert.ok(labels.includes("JCR Q1"), pattern + " did not recognize article-detail metadata");
+  page.close();
+  global.gc?.();
 }
 
 for (const host of ["www.researchgate.net", "researchgate.net"]) {
@@ -905,6 +959,8 @@ for (const host of ["www.researchgate.net", "researchgate.net"]) {
   assert.ok(labels.includes("JCR Q1"), `${host} did not recognize publication-detail metadata`);
   assert.equal(page.dom.window.document.querySelectorAll("#rg-detail .rank-assistant-row").length, 1,
     `${host} must render one badge row on a publication page`);
+  page.close();
+  global.gc?.();
 }
 const diverseVenueCases = [
   { venue: "IEEE Transactions on Pattern Analysis and Machine Intelligence", expected: ["CCF A", "\u4e2d\u79d1\u9662 1\u533a Top", "JCR Q1", "SCI/SCIE", "EI"], kind: "journal" },
@@ -945,13 +1001,13 @@ for (let index = 0; index < diverseVenueCases.length; index += 1) {
   for (const expected of testCase.expected) {
     assert.ok(labels.includes(expected), testCase.venue + " missing " + expected + ": " + JSON.stringify(labels));
   }
+  page.close();
+  global.gc?.();
 }
 console.log(JSON.stringify({
-  dblp: { labels: knownLabels, controls: doc.querySelectorAll(".rank-assistant-badge, .rank-assistant-venue-detail").length, tooltips: doc.querySelectorAll("#rank-assistant-shared-tooltip").length },
-  scholar: { labels: scholarLabels, catalogFetches: scholar.catalogFetches },
-  recovered: { apiFetches: recovered.apiFetches, entries: recovered.dom.window.document.querySelectorAll("li.entry").length },
-  stress: { entries: 100, catalogFetches: stress.catalogFetches, tooltips: stressDoc.querySelectorAll("#rank-assistant-shared-tooltip").length, elapsedMs: stressMs },
+  ...basicSummary,
   manifestMatrix: { patterns: manifestMatrix.length, publisherSearchPages: publisherPatterns.length, publisherDetailPages: publisherPatterns.length },
-  venueDiversity: { cases: diverseVenueCases.length, journals: diverseVenueCases.filter((item) => item.kind === "journal").length, conferences: diverseVenueCases.filter((item) => item.kind === "conference").length, chineseJournals: diverseVenueCases.filter((item) => item.kind === "chinese").length }
+  venueDiversity: { cases: diverseVenueCases.length, journals: diverseVenueCases.filter((item) => item.kind === "journal").length, conferences: diverseVenueCases.filter((item) => item.kind === "conference").length, chineseJournals: diverseVenueCases.filter((item) => item.kind === "chinese").length },
+  testHarness: { createdPages, closedPages, activePages: activePages.size, sharedCatalogShards: parsedCatalog.size }
 }, null, 2));
 process.exit(0);

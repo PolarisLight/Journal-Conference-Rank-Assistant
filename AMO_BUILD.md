@@ -1,4 +1,4 @@
-# AMO source submission for version 0.12.1
+# AMO source submission for version 0.13.0
 
 This archive contains the human-readable source and data inputs required to reproduce the submitted Firefox extension.
 
@@ -19,7 +19,7 @@ From the root of this archive, run:
 bash build.sh
 ```
 
-The script regenerates the compact non-executable ISSN lookup, copies the readable JavaScript, HTML, CSS, manifest, locale, and image files, regenerates the 28 AES-GCM encrypted catalog shards from the supplied plaintext data using the original public IVs, verifies every unpacked file byte-for-byte, and creates `dist/firefox-extension-v0.12.1.zip` using only the Python standard library.
+The script regenerates the compact non-executable ISSN lookup, copies the readable JavaScript, HTML, CSS, manifest, locale, and image files, regenerates the 28 AES-GCM encrypted catalog shards from the supplied plaintext data using the original public IVs, verifies every unpacked file byte-for-byte, and creates `dist/firefox-extension-v0.13.0.zip` using only the Python standard library.
 
 The verified unpacked extension is written to `dist/firefox-extension/`. Reviewers can compare that directory with the unpacked AMO submission. ZIP container metadata may differ, while all contained files are verified byte-for-byte.
 

@@ -59,6 +59,10 @@
 .rank-assistant-badge[data-kind="if"] { --pr-color: #247355; }
 .rank-assistant-badge[data-kind="wos"] { --pr-color: #5365a6; }
 .rank-assistant-badge[data-kind="top"] { --pr-color: #a64c2e; }
+.rank-assistant-badge[data-kind="custom"] {
+  --pr-color: var(--paper-rank-ei, #246f78);
+  border-style: dashed;
+}
 
 .rank-assistant-venue-detail {
   --pr-color: #475467;

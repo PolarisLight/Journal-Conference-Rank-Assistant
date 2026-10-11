@@ -367,5 +367,20 @@
   },
   "ui_all": {
     "message": "All"
+  },
+  "ui_custom_indexes": {
+    "message": "Custom indexes"
+  },
+  "ui_manage_custom_indexes": {
+    "message": "Manage custom indexes"
+  },
+  "ui_import_your_journal_and_conference_lists_for_badges_and_filtering": {
+    "message": "Import your journal and conference lists for badges and filtering."
+  },
+  "ui_user_uploaded_custom_index": {
+    "message": "User-uploaded custom index"
+  },
+  "ui_provided_by_a_user_uploaded_journal_or_conference_list_independently_of_the_built_in_official_indexe": {
+    "message": "Provided by a user-uploaded journal or conference list, independently of the built-in official indexes."
   }
 }

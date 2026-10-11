@@ -27,11 +27,22 @@
 - UTD24、FT50 与 ABS/AJG 2024 商科期刊标签
 - 期刊详情包含规范名称、发行商、研究方向、ISSN、数据年份与来源
 - 可拖动的筛选按钮，支持按索引、分区和等级保留论文
+- 导入多组自定义索引，每组独立命名、自行设置等级，并参与标签显示与筛选
 - 浅色、深色、跟随系统三种浮层主题
 - 柔和彩、鲜明色、色盲友好三套标签色系，默认使用鲜明色
 - 界面语言可在简体中文与 English 之间明确切换
 
 <p align=center><img src=submission/v0.11.0/promo-440x280.png width=440 alt=插件标签与筛选界面图></p>
+
+## 使用自己的索引目录
+
+扩展 0.13.0 起支持导入多组 CSV。每份文件是一组索引，例如某学校的经管目录；每组可分别启停、导出备份和删除。
+
+1. [下载 CSV 模板](https://polarislight.github.io/Journal-Conference-Rank-Assistant/downloads/custom-index-template.csv)，按 `名称,等级,ISSN,别名` 四列填写。名称是期刊或会议名称；等级自由填写，留空显示“收录”；多个 ISSN 或别名以分号分隔。
+2. 打开扩展弹窗 → **管理自定义索引** → 选择 CSV，在 **索引名称** 中填写组名，核对预览后点击 **导入索引**。
+3. 刷新论文页面，查看“自定义：组名 等级”标签，并在网页筛选器中选择这组索引。
+
+已有 PDF、表格或机构名单时，可使用 AI 整理为 CSV。先确认资料的来源和年份，转换后对照原目录核对名称、等级和条目数量。[查看完整操作指南与可复制的 AI 提示词](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#custom-indexes)。
 
 ## 收录体系
 

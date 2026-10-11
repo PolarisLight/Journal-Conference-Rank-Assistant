@@ -4,7 +4,7 @@
 
 - 名称：期刊会议等级与分区助手
 - English name: Journal & Conference Rank Assistant
-- 版本：0.12.1
+- 版本：0.13.0
 - 类别：Productivity / 生产力工具
 - 建议可见性：Public / 公开列出
 - 官方主页：https://github.com/PolarisLight/Journal-Conference-Rank-Assistant
@@ -25,6 +25,7 @@
 - 显示 JCR Q1–Q4 和 Journal Impact Factor；
 - 显示 SCIE、SSCI、AHCI、ESCI 等 Web of Science 收录类型；
 - 显示 UTD24、FT50 与 ABS/AJG 2024 商科期刊标签；
+- 导入多组自定义索引，独立命名、自行设置等级，并按组筛选论文；
 - 悬停标签查看指标含义、数据年份和来源；
 - 查看期刊/会议规范名称、发行商、研究方向和 ISSN；
 - 支持浅色、深色及跟随系统主题；

@@ -5,6 +5,16 @@ import { createHash, webcrypto } from "node:crypto";
 
 const source = fs.readFileSync("extension/background/background.js", "utf8");
 const data = {};
+const customSettings = {
+  customIndexes: [{ id: 'retained-school', name: '学校自定义目录', enabled: true,
+    updatedAt: '2026-10-11T00:00:00.000Z', entries: [{ title: 'School-only Journal', level: '重点', aliases: ['SOJ'], issns: [] }] }],
+  showCustomIndexes: false,
+  resultFilters: { indexes: ['custom:retained-school'], values: { 'custom:retained-school': ['重点'] } }
+};
+Object.assign(data, structuredClone(customSettings));
+function assertCustomSettingsRetained() {
+  for (const [key, value] of Object.entries(customSettings)) assert.deepEqual(data[key], value, key + ' must survive official catalog operations');
+}
 const listeners = {};
 let buildInfoRemoteVersion = null;
 const event = (name) => ({ addListener(fn) { listeners[name] = fn; } });
@@ -37,6 +47,7 @@ const latestPath = "updates/latest.json";
 const bundlePath = "updates/" + JSON.parse(fs.readFileSync(latestPath, "utf8")).bundleUrl.split("/").at(-1);
 const originalBundleText = fs.readFileSync(bundlePath, "utf8");
 let tamperSignatureTest = false;
+let packagedShardUnavailable = false;
 const dblpApiFetches = [];
 const pubmedApiFetches = [];
 
@@ -54,6 +65,9 @@ const fetch = async (url) => {
     return responseJson(JSON.parse(fs.readFileSync("extension/data/update-public-key.json", "utf8")));
   }
   if (value.includes("catalog-shard-")) {
+    if (packagedShardUnavailable && value.endsWith("catalog-shard-i.encrypted.json")) {
+      return { ok: false, status: 404 };
+    }
     return responseJson(JSON.parse(fs.readFileSync(value, "utf8")));
   }
   if (value.endsWith("updates/latest.json")) {
@@ -191,6 +205,43 @@ const updatedShard = await message({ type: "rank-assistant-get-data-shard", key:
 assert.equal(updatedShard.ok, true);
 assert.equal(updatedShard.updated, true);
 assert.ok(updatedShard.shard.r.some((record) => record[0] === "IEEE Access"));
+assert.equal((await message({ type: "rank-assistant-get-data-shard", key: "i" })).updated, true,
+  "A cached update must retain its updated source flag");
+
+const validUpdatedPayload = data["rankAssistantDataShard.i"];
+const unchangedShard = data["rankAssistantDataShard.a"];
+const unchangedUpdateInfo = data.dataUpdateInfo;
+for (const damagedPayload of [
+  { cipher: "invalid-format" },
+  { ...validUpdatedPayload, cipher: (validUpdatedPayload.cipher[0] === "A" ? "B" : "A") + validUpdatedPayload.cipher.slice(1) }
+]) {
+  data["rankAssistantDataShard.i"] = damagedPayload;
+  listeners.changed({ "rankAssistantDataShard.i": { newValue: damagedPayload } }, "local");
+  const fallbackShard = await message({ type: "rank-assistant-get-data-shard", key: "i" });
+  assert.equal(fallbackShard.ok, true, "A damaged current update must fall back to the bundled catalog");
+  assert.equal(fallbackShard.updated, false);
+  assert.ok(fallbackShard.shard.r.some((record) => /pattern analysis and machine intelligence/i.test(record[0]) && record[1] === "A"));
+  assert.equal((await message({ type: "rank-assistant-get-data-shard", key: "i" })).updated, false,
+    "A cached bundled fallback must retain its source flag");
+  assert.equal(data["rankAssistantDataShard.i"], damagedPayload, "Fallback must not remove stored data");
+  assert.equal(data["rankAssistantDataShard.a"], unchangedShard, "Fallback must preserve unrelated shards");
+  assert.equal(data.dataUpdateInfo, unchangedUpdateInfo, "Fallback must preserve update metadata");
+}
+
+packagedShardUnavailable = true;
+listeners.changed({ "rankAssistantDataShard.i": {} }, "local");
+const failedFallback = await message({ type: "rank-assistant-get-data-shard", key: "i" });
+assert.equal(failedFallback.ok, false, "Failure of both catalogs must remain an error");
+assert.equal(failedFallback.shard, null);
+assert.match(failedFallback.error, /基础分片回退失败/);
+assert.match(failedFallback.error, /无法读取加密基础分片/);
+
+data["rankAssistantDataShard.i"] = validUpdatedPayload;
+listeners.changed({ "rankAssistantDataShard.i": { newValue: validUpdatedPayload } }, "local");
+const restoredUpdate = await message({ type: "rank-assistant-get-data-shard", key: "i" });
+assert.equal(restoredUpdate.ok, true, "A valid update must work even when the bundled catalog is unavailable");
+assert.equal(restoredUpdate.updated, true);
+packagedShardUnavailable = false;
 
 const journal = await message({ type: "rank-assistant-journal-metadata", issns: ["0018-9162"], title: "Computer" });
 assert.equal(journal.ok, true);
@@ -239,6 +290,7 @@ assert.equal(rejected.state, "error");
 assert.match(rejected.error, /签名验证失败/);
 
 const installedDataWasEncrypted = data.dataUpdateInfo.encrypted;
+assertCustomSettingsRetained();
 tamperSignatureTest = false;
 buildInfoRemoteVersion = null;
 data.dataUpdateInfo = { remoteVersion: "2026.01.01", dataVersions: { cas: "2025", jcr: "2025", ccf: "2025" } };
@@ -248,6 +300,7 @@ listeners.installed({ reason: "update", previousVersion: "0.10.1" });
 await new Promise((resolve) => setTimeout(resolve, 20));
 assert.equal(data.dataUpdateInfo, undefined);
 assert.equal(data["rankAssistantDataShard.i"], undefined);
+assertCustomSettingsRetained();
 assert.deepEqual({ ...data.updateStatus.dataVersions }, {
   cas: "2025", jcr: "2025", ccf: "2026", cssci: "2025-2026", pkuCore: "2023", ei: "2026-07-09", xinrui: "2026", warning: "2025"
 });
@@ -260,5 +313,6 @@ console.log(JSON.stringify({
   encrypted: installedDataWasEncrypted,
   signatureTamperRejected: true,
   publisher: journal.metadata.publisher,
-  cached: cached.cached
+  cached: cached.cached,
+  customIndexesRetained: true
 }));

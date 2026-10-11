@@ -27,11 +27,22 @@ The extension places rank badges beside paper titles and explains each badge on 
 - UTD24, FT50, and ABS/AJG 2024 business-journal badges
 - Venue details including canonical name, publisher, topics, ISSN, data year, and source
 - A draggable page filter for keeping papers by index, partition, or rank
+- Multiple independently named custom CSV indexes, with user-defined tiers, badges, and filtering
 - Light, dark, and system-following panel themes
 - Soft, vivid, and color-blind-friendly badge palettes, with vivid selected by default
 - An explicit interface language switch between Simplified Chinese and English
 
 <p align=center><img src=submission/v0.11.0/promo-440x280-en.png width=440 alt=Extension-interface></p>
+
+## Use your own index lists
+
+Version 0.13.0 adds multiple custom CSV indexes. Each file creates a separate named index that can be enabled, disabled, exported, or deleted independently.
+
+1. [Download the CSV template](https://polarislight.github.io/Journal-Conference-Rank-Assistant/downloads/custom-index-template.csv). Keep the four headers `名称,等级,ISSN,别名`: venue name, tier, ISSN, and aliases. Venue names are required; blank tiers display as 收录 (included). Separate multiple ISSNs or aliases with semicolons.
+2. Open the extension popup → **Manage custom indexes** → choose the CSV. Enter the group name in **Index name**, check the preview, and click **Import index**.
+3. Refresh paper pages to see **Custom: index name tier** badges and filter by the new index.
+
+AI can convert an existing institutional list, PDF, or spreadsheet into CSV. Confirm the source and year, then verify names, tiers, and the entry count against the original. [Read the step-by-step guide and copy the AI prompt](https://polarislight.github.io/Journal-Conference-Rank-Assistant/#custom-indexes).
 
 ## Ranking and indexing coverage
 
